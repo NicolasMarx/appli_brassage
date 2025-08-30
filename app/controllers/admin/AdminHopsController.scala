@@ -1,174 +1,230 @@
-// app/controllers/admin/AdminHopsController.scala
 package controllers.admin
 
 import javax.inject._
 import play.api.mvc._
 import play.api.libs.json._
 import scala.concurrent.{ExecutionContext, Future}
-import interfaces.http.dto.responses.public.HopResponse._
-import interfaces.http.dto.responses.public._
 import java.time.Instant
+import java.util.UUID
+
+import application.services.hops.{HopService, CreateHopData, UpdateHopData}
+import domain.hops.model._
+import interfaces.http.dto.responses.public.HopOriginResponse
+
+/**
+ * DTO pour les requêtes de création de houblon (admin)
+ */
+case class CreateHopRequest(
+                             name: String,
+                             alphaAcid: Double,
+                             betaAcid: Option[Double],
+                             originCode: String,
+                             usage: String,
+                             description: Option[String]
+                           )
+
+/**
+ * DTO pour les requêtes de mise à jour de houblon (admin)
+ */
+case class UpdateHopRequest(
+                             name: Option[String],
+                             alphaAcid: Option[Double],
+                             betaAcid: Option[Double],
+                             description: Option[String]
+                           )
+
+/**
+ * DTO de réponse pour l'admin (plus détaillé que l'API publique)
+ */
+case class AdminHopResponse(
+                             id: String,
+                             name: String,
+                             alphaAcid: Double,
+                             betaAcid: Option[Double],
+                             origin: HopOriginResponse,
+                             usage: String,
+                             description: Option[String],
+                             status: String,
+                             source: String,
+                             credibilityScore: Int,
+                             aromaProfiles: List[String],
+                             createdAt: Instant,
+                             updatedAt: Instant,
+                             version: Int
+                           )
+
+/**
+ * DTO pour les listes paginées d'admin
+ */
+case class AdminHopListResponse(
+                                 hops: List[AdminHopResponse],
+                                 totalCount: Int,
+                                 page: Int,
+                                 pageSize: Int,
+                                 hasNext: Boolean
+                               )
+
+/**
+ * JSON formatters pour les DTOs admin
+ */
+object AdminHopDTOs {
+  // Import nécessaire pour HopOriginResponse
+  import interfaces.http.dto.responses.public.HopOriginResponse
+
+  implicit val createHopRequestReads: Reads[CreateHopRequest] = Json.reads[CreateHopRequest]
+  implicit val updateHopRequestReads: Reads[UpdateHopRequest] = Json.reads[UpdateHopRequest]
+
+  // Formatter pour HopOriginResponse (si pas déjà défini ailleurs)
+  implicit val hopOriginResponseWrites: Writes[HopOriginResponse] = Json.writes[HopOriginResponse]
+
+  implicit val adminHopResponseWrites: Writes[AdminHopResponse] = Json.writes[AdminHopResponse]
+  implicit val adminHopListResponseWrites: Writes[AdminHopListResponse] = Json.writes[AdminHopListResponse]
+}
 
 @Singleton
 class AdminHopsController @Inject()(
-                                     val controllerComponents: ControllerComponents
-                                   )(implicit ec: ExecutionContext) extends BaseController {
+                                     cc: ControllerComponents,
+                                     hopService: HopService
+                                   )(implicit ec: ExecutionContext) extends AbstractController(cc) {
 
-  def list(page: Int = 0, size: Int = 20) = Action.async { implicit request =>
-    Future {
-      val mockHops = getMockAdminHops()
-      val totalCount = mockHops.length
-      val startIndex = page * size
-      val endIndex = math.min(startIndex + size, totalCount)
-      val hopsPage = mockHops.slice(startIndex, endIndex)
+  import AdminHopDTOs._
 
+  def list(page: Int = 0, size: Int = 20) = Action.async { _ =>
+    hopService.getAllHops(page, size).map { case (hops, totalCount) =>
+      val adminHops = hops.map(convertToAdminResponse)
       val response = AdminHopListResponse(
-        hops = hopsPage,
+        hops = adminHops,
         totalCount = totalCount,
         page = page,
         pageSize = size,
-        hasNext = endIndex < totalCount
+        hasNext = (page + 1) * size < totalCount
       )
-
       Ok(Json.toJson(response))
+    }.recover {
+      case ex =>
+        InternalServerError(Json.obj("error" -> s"Erreur lors de la récupération: ${ex.getMessage}"))
     }
   }
 
-  def detail(id: String) = Action.async { implicit request =>
-    Future {
-      getMockAdminHops().find(_.id == id) match {
-        case Some(hop) => Ok(Json.toJson(hop))
-        case None => NotFound(Json.obj("error" -> "Houblon non trouvé"))
-      }
+  def detail(id: String) = Action.async { _ =>
+    hopService.getHopById(id).map {
+      case Some(hop) => Ok(Json.toJson(convertToAdminResponse(hop)))
+      case None => NotFound(Json.obj("error" -> s"Houblon $id non trouvé"))
+    }.recover {
+      case ex =>
+        InternalServerError(Json.obj("error" -> s"Erreur lors de la récupération: ${ex.getMessage}"))
     }
   }
 
-  def create() = Action.async(parse.json) { implicit request =>
-    Future {
-      request.body.validate[CreateHopRequest] match {
-        case JsSuccess(hopRequest, _) =>
-          val newHop = AdminHopResponse(
-            id = java.util.UUID.randomUUID().toString,
-            name = hopRequest.name,
-            alphaAcid = hopRequest.alphaAcid,
-            betaAcid = hopRequest.betaAcid,
-            origin = HopOriginResponse(
-              hopRequest.originCode,
-              getOriginName(hopRequest.originCode),
-              getOriginRegion(hopRequest.originCode),
-              isNoble = Set("DE", "CZ", "BE").contains(hopRequest.originCode),
-              isNewWorld = Set("US", "AU", "NZ", "CA").contains(hopRequest.originCode)
-            ),
-            usage = hopRequest.usage,
-            description = hopRequest.description,
-            status = "DRAFT",
-            source = "MANUAL",
-            credibilityScore = 95,
-            aromaProfiles = List.empty,
-            createdAt = Instant.now(),
-            updatedAt = Instant.now()
+  def create = Action(parse.json).async { implicit request =>
+    request.body.validate[CreateHopRequest] match {
+      case JsSuccess(hopRequest, _) =>
+        try {
+          val origin = HopOrigin.fromCode(hopRequest.originCode).getOrElse(
+            HopOrigin(hopRequest.originCode, hopRequest.originCode, "Unknown")
           )
 
-          Created(Json.toJson(newHop))
+          val usage = HopUsage.fromString(hopRequest.usage)
 
-        case JsError(errors) =>
-          BadRequest(Json.obj("errors" -> JsError.toJson(errors)))
-      }
-    }
-  }
+          val createData = CreateHopData(
+            id = UUID.randomUUID().toString,
+            name = hopRequest.name,
+            alphaAcid = hopRequest.alphaAcid,
+            origin = origin,
+            usage = usage,
+            betaAcid = hopRequest.betaAcid,
+            description = hopRequest.description
+          )
 
-  def update(id: String) = Action.async(parse.json) { implicit request =>
-    Future {
-      request.body.validate[UpdateHopRequest] match {
-        case JsSuccess(hopRequest, _) =>
-          getMockAdminHops().find(_.id == id) match {
-            case Some(existingHop) =>
-              val updatedHop = existingHop.copy(
-                name = hopRequest.name.getOrElse(existingHop.name),
-                alphaAcid = hopRequest.alphaAcid.getOrElse(existingHop.alphaAcid),
-                betaAcid = hopRequest.betaAcid.orElse(existingHop.betaAcid),
-                description = hopRequest.description.orElse(existingHop.description),
-                updatedAt = Instant.now()
-              )
-              Ok(Json.toJson(updatedHop))
-            case None =>
-              NotFound(Json.obj("error" -> "Houblon non trouvé"))
+          hopService.createHop(createData).map { newHop =>
+            Created(Json.toJson(convertToAdminResponse(newHop)))
+          }.recover {
+            case ex =>
+              InternalServerError(Json.obj("error" -> s"Erreur lors de la création: ${ex.getMessage}"))
           }
-        case JsError(errors) =>
-          BadRequest(Json.obj("errors" -> JsError.toJson(errors)))
-      }
+        } catch {
+          case ex: Exception =>
+            Future.successful(BadRequest(Json.obj("error" -> s"Données invalides: ${ex.getMessage}")))
+        }
+
+      case JsError(errors) =>
+        Future.successful(BadRequest(Json.obj("error" -> "Données invalides", "details" -> JsError.toJson(errors))))
     }
   }
 
-  def delete(id: String) = Action.async { implicit request =>
-    Future {
-      getMockAdminHops().find(_.id == id) match {
-        case Some(_) =>
-          Ok(Json.obj("message" -> "Houblon supprimé avec succès"))
-        case None =>
-          NotFound(Json.obj("error" -> "Houblon non trouvé"))
-      }
+  def update(id: String) = Action(parse.json).async { implicit request =>
+    request.body.validate[UpdateHopRequest] match {
+      case JsSuccess(hopRequest, _) =>
+        val updateData = UpdateHopData(
+          alphaAcid = hopRequest.alphaAcid,
+          betaAcid = hopRequest.betaAcid.map(Some(_)),
+          description = hopRequest.description.map(Some(_))
+        )
+
+        hopService.updateHop(id, updateData).map {
+          case Some(updatedHop) => Ok(Json.toJson(convertToAdminResponse(updatedHop)))
+          case None => NotFound(Json.obj("error" -> s"Houblon $id non trouvé"))
+        }.recover {
+          case ex =>
+            InternalServerError(Json.obj("error" -> s"Erreur lors de la mise à jour: ${ex.getMessage}"))
+        }
+
+      case JsError(errors) =>
+        Future.successful(BadRequest(Json.obj("error" -> "Données invalides", "details" -> JsError.toJson(errors))))
     }
   }
 
-  private def getMockAdminHops(): List[AdminHopResponse] = List(
+  def delete(id: String) = Action.async { _ =>
+    hopService.deleteHop(id).map { deleted =>
+      if (deleted) {
+        NoContent
+      } else {
+        NotFound(Json.obj("error" -> s"Houblon $id non trouvé"))
+      }
+    }.recover {
+      case ex =>
+        InternalServerError(Json.obj("error" -> s"Erreur lors de la suppression: ${ex.getMessage}"))
+    }
+  }
+
+  /**
+   * Convertit un HopAggregate vers AdminHopResponse
+   */
+  private def convertToAdminResponse(hop: HopAggregate): AdminHopResponse = {
     AdminHopResponse(
-      id = "cascade-001",
-      name = "Cascade",
-      alphaAcid = 5.5,
-      betaAcid = Some(4.8),
-      origin = HopOriginResponse("US", "États-Unis", "Amérique du Nord", false, true),
-      usage = "AROMA",
-      description = Some("Houblon américain iconique aux arômes d'agrumes et floraux"),
-      status = "ACTIVE",
-      source = "MANUAL",
-      credibilityScore = 98,
-      aromaProfiles = List(
-        AromaProfileResponse("citrus", "Agrume", "fruity", Some(9)),
-        AromaProfileResponse("floral", "Floral", "floral", Some(7))
+      id = hop.id.value,
+      name = hop.name.value,
+      alphaAcid = hop.alphaAcid.value,
+      betaAcid = hop.betaAcid.map(_.value),
+      origin = HopOriginResponse(
+        code = hop.origin.code,
+        name = hop.origin.name,
+        region = hop.origin.region,
+        isNoble = hop.origin.isNoble,
+        isNewWorld = hop.origin.isNewWorld
       ),
-      createdAt = Instant.now(),
-      updatedAt = Instant.now()
-    ),
-    AdminHopResponse(
-      id = "galaxy-004",
-      name = "Galaxy",
-      alphaAcid = 14.2,
-      betaAcid = Some(5.8),
-      origin = HopOriginResponse("AU", "Australie", "Océanie", false, true),
-      usage = "DUAL_PURPOSE",
-      description = Some("Houblon australien aux arômes tropicaux intenses"),
-      status = "ACTIVE",
-      source = "MANUAL",
-      credibilityScore = 97,
-      aromaProfiles = List(
-        AromaProfileResponse("tropical", "Fruits tropicaux", "fruity", Some(10)),
-        AromaProfileResponse("citrus", "Agrume", "fruity", Some(8))
-      ),
-      createdAt = Instant.now(),
-      updatedAt = Instant.now()
+      usage = hop.usage match {
+        case HopUsage.Bittering => "BITTERING"
+        case HopUsage.Aroma => "AROMA"
+        case HopUsage.DualPurpose => "DUAL_PURPOSE"
+        case HopUsage.NobleHop => "NOBLE_HOP"
+      },
+      description = hop.description.map(_.value),
+      status = hop.status match {
+        case HopStatus.Active => "ACTIVE"
+        case HopStatus.Discontinued => "DISCONTINUED"
+        case HopStatus.Limited => "LIMITED"
+      },
+      source = hop.source match {
+        case HopSource.Manual => "MANUAL"
+        case HopSource.AI_Discovery => "AI_DISCOVERED"
+        case HopSource.Import => "IMPORT"
+      },
+      credibilityScore = hop.credibilityScore,
+      aromaProfiles = hop.aromaProfile,
+      createdAt = hop.createdAt,
+      updatedAt = hop.updatedAt,
+      version = hop.version
     )
-  )
-
-  private def getOriginName(code: String): String = code match {
-    case "US" => "États-Unis"
-    case "DE" => "Allemagne"
-    case "CZ" => "République Tchèque"
-    case "UK" => "Royaume-Uni"
-    case "AU" => "Australie"
-    case "NZ" => "Nouvelle-Zélande"
-    case "BE" => "Belgique"
-    case "FR" => "France"
-    case "CA" => "Canada"
-    case "JP" => "Japon"
-    case _ => "Inconnu"
-  }
-
-  private def getOriginRegion(code: String): String = code match {
-    case "US" | "CA" => "Amérique du Nord"
-    case "DE" | "CZ" | "UK" | "BE" | "FR" => "Europe"
-    case "AU" | "NZ" => "Océanie"
-    case "JP" => "Asie"
-    case _ => "Inconnu"
   }
 }

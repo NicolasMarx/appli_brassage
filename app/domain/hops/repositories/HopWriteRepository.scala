@@ -1,27 +1,36 @@
-// app/domain/hops/repositories/HopWriteRepository.scala
 package domain.hops.repositories
 
-import domain.hops.model.{HopId, HopAggregate}
 import scala.concurrent.Future
+import domain.hops.model.{HopAggregate, HopId}
 
 /**
- * Repository écriture pour les houblons (CQRS Write Side)
- * Interface pure du domaine, sans dépendances techniques
+ * Repository pour les opérations d'écriture sur les houblons
+ * Suit le pattern CQRS avec séparation Read/Write
  */
 trait HopWriteRepository {
 
   /**
-   * Sauvegarde un houblon (création ou mise à jour)
+   * Sauvegarde un houblon (insert ou update)
    */
   def save(hop: HopAggregate): Future[HopAggregate]
 
   /**
-   * Supprime un houblon
+   * Sauvegarde une liste de houblons en lot
+   */
+  def saveAll(hops: List[HopAggregate]): Future[List[HopAggregate]]
+
+  /**
+   * Met à jour un houblon existant
+   */
+  def update(hop: HopAggregate): Future[Option[HopAggregate]]
+
+  /**
+   * Supprime un houblon par son ID
    */
   def delete(id: HopId): Future[Boolean]
 
   /**
-   * Sauvegarde plusieurs houblons en une transaction
+   * Vérifie si un houblon existe
    */
-  def saveAll(hops: List[HopAggregate]): Future[List[HopAggregate]]
+  def exists(id: HopId): Future[Boolean]
 }

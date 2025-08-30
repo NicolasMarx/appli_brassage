@@ -1,229 +1,302 @@
-// app/domain/hops/model/HopAggregate.scala
 package domain.hops.model
 
-import domain.common._
-import domain.shared._
 import java.time.Instant
+import domain.shared.NonEmptyString
 
-case class HopAggregate private (
-                                  id: HopId,
-                                  name: NonEmptyString,
-                                  alphaAcid: AlphaAcidPercentage,
-                                  betaAcid: Option[AlphaAcidPercentage],
-                                  origin: HopOrigin,
-                                  usage: HopUsage,
-                                  description: Option[NonEmptyString],
-                                  aromaProfile: List[String], // IDs des arômes
-                                  status: HopStatus,
-                                  source: HopSource,
-                                  credibilityScore: Int,
-                                  createdAt: Instant,
-                                  updatedAt: Instant,
-                                  override val version: Int
-                                ) extends EventSourced {
+/**
+ * Agrégat principal du domaine Hop
+ * Représente un houblon avec toutes ses caractéristiques et comportements métier
+ */
+case class HopAggregate(
+                         id: HopId,
+                         name: NonEmptyString,
+                         alphaAcid: AlphaAcidPercentage,
+                         betaAcid: Option[AlphaAcidPercentage], // Temporairement AlphaAcidPercentage en attendant BetaAcidPercentage
+                         origin: HopOrigin,
+                         usage: HopUsage,
+                         description: Option[NonEmptyString],
+                         aromaProfile: List[String], // Profils aromatiques associés
+                         status: HopStatus,
+                         source: HopSource,
+                         credibilityScore: Int, // Score de fiabilité des données (0-100)
+                         createdAt: Instant,
+                         updatedAt: Instant,
+                         version: Int // Version pour gestion optimiste des conflits
+                       ) {
 
-  // Méthodes de lecture (queries)
+  /**
+   * Met à jour le taux d'acide alpha avec validation métier
+   */
+  def updateAlphaAcid(alpha: AlphaAcidPercentage): HopAggregate = {
+    require(alpha.value >= 0 && alpha.value <= 30, s"Alpha acid must be between 0 and 30%, got: ${alpha.value}")
+    this.copy(
+      alphaAcid = alpha,
+      updatedAt = Instant.now(),
+      version = version + 1
+    )
+  }
+
+  /**
+   * Met à jour le taux d'acide bêta avec validation métier
+   */
+  def updateBetaAcid(beta: Option[AlphaAcidPercentage]): HopAggregate = {
+    beta.foreach { b =>
+      require(b.value >= 0 && b.value <= 15, s"Beta acid must be between 0 and 15%, got: ${b.value}")
+    }
+    this.copy(
+      betaAcid = beta,
+      updatedAt = Instant.now(),
+      version = version + 1
+    )
+  }
+
+  /**
+   * Met à jour la description du houblon
+   */
+  def updateDescription(desc: Option[String]): HopAggregate = {
+    val newDescription = desc.filter(_.trim.nonEmpty).map(NonEmptyString(_))
+    this.copy(
+      description = newDescription,
+      updatedAt = Instant.now(),
+      version = version + 1
+    )
+  }
+
+  /**
+   * Ajoute un profil aromatique
+   */
+  def addAromaProfile(aroma: String): HopAggregate = {
+    if (!aromaProfile.contains(aroma)) {
+      this.copy(
+        aromaProfile = (aromaProfile :+ aroma).distinct,
+        updatedAt = Instant.now(),
+        version = version + 1
+      )
+    } else {
+      this
+    }
+  }
+
+  /**
+   * Supprime un profil aromatique
+   */
+  def removeAromaProfile(aroma: String): HopAggregate = {
+    this.copy(
+      aromaProfile = aromaProfile.filterNot(_ == aroma),
+      updatedAt = Instant.now(),
+      version = version + 1
+    )
+  }
+
+  /**
+   * Met à jour le statut du houblon
+   */
+  def updateStatus(newStatus: HopStatus): HopAggregate = {
+    this.copy(
+      status = newStatus,
+      updatedAt = Instant.now(),
+      version = version + 1
+    )
+  }
+
+  /**
+   * Met à jour l'usage du houblon
+   */
+  def updateUsage(newUsage: HopUsage): HopAggregate = {
+    this.copy(
+      usage = newUsage,
+      updatedAt = Instant.now(),
+      version = version + 1
+    )
+  }
+
+  /**
+   * Met à jour le score de crédibilité
+   */
+  def updateCredibilityScore(score: Int): HopAggregate = {
+    require(score >= 0 && score <= 100, s"Credibility score must be between 0 and 100, got: $score")
+    this.copy(
+      credibilityScore = score,
+      updatedAt = Instant.now(),
+      version = version + 1
+    )
+  }
+
+  // ===============================
+  // MÉTHODES MÉTIER
+  // ===============================
+
+  /**
+   * Détermine si le houblon est considéré comme fiable
+   */
+  def isReliable: Boolean = credibilityScore >= 70
+
+  /**
+   * Détermine si le houblon a été découvert par IA
+   */
+  def isAiDiscovered: Boolean = source == HopSource.AI_Discovery
+
+  /**
+   * Détermine si le houblon est actif
+   */
   def isActive: Boolean = status == HopStatus.Active
-  def isDraft: Boolean = status == HopStatus.Draft
-  def isHighAlpha: Boolean = alphaAcid.isHigh
-  def isDualPurpose: Boolean = usage == HopUsage.DualPurpose
+
+  /**
+   * Détermine si le houblon est noble (basé sur l'origine)
+   */
   def isNoble: Boolean = origin.isNoble
-  def isFromAI: Boolean = source == HopSource.AI_Discovery
-  def hasHighCredibility: Boolean = credibilityScore >= 80
 
-  def getUsageCategory: String = usage.name
-  def getAlphaCategory: String = alphaAcid.category
+  /**
+   * Détermine si le houblon est du nouveau monde
+   */
+  def isNewWorld: Boolean = origin.isNewWorld
 
-  // Méthodes métier (commands)
-  def updateAlphaAcid(newAlphaAcid: AlphaAcidPercentage): Either[DomainError, HopAggregate] = {
-    if (alphaAcid == newAlphaAcid) {
-      Left(DomainError.validation("Le taux d'alpha acid est déjà celui spécifié"))
-    } else {
-      // Mise à jour automatique de l'usage si nécessaire
-      val suggestedUsage = HopUsage.fromAlphaAcid(newAlphaAcid.value)
-      val finalUsage = if (usage != suggestedUsage && usage == HopUsage.DualPurpose) usage else suggestedUsage
+  /**
+   * Détermine si le houblon est polyvalent (dual-purpose)
+   */
+  def isDualPurpose: Boolean = usage == HopUsage.DualPurpose
 
-      val updatedHop = this.copy(
-        alphaAcid = newAlphaAcid,
-        usage = finalUsage,
-        updatedAt = Instant.now(),
-        version = version + 1
-      )
-
-      updatedHop.raise(HopAlphaAcidUpdated(
-        id.value,
-        alphaAcid.value,
-        newAlphaAcid.value,
-        finalUsage.name,
-        version + 1
-      ))
-      Right(updatedHop)
+  /**
+   * Retourne une représentation textuelle des caractéristiques principales
+   */
+  def characteristics: String = {
+    val usageStr = usage match {
+      case HopUsage.Bittering => "Amérisant"
+      case HopUsage.Aroma => "Aromatique"
+      case HopUsage.DualPurpose => "Polyvalent"
+      case HopUsage.NobleHop => "Noble"
     }
+
+    val originStr = if (isNoble) s"${origin.name} (Noble)" else origin.name
+    val alphaStr = f"α:${alphaAcid.value}%.1f%%"
+    val betaStr = betaAcid.map(b => f"β:${b.value}%.1f%%").getOrElse("β:N/A")
+
+    s"$usageStr - $originStr - $alphaStr, $betaStr"
   }
 
-  def updateDescription(newDescription: NonEmptyString): Either[DomainError, HopAggregate] = {
-    if (description.contains(newDescription)) {
-      Left(DomainError.validation("La description est déjà celle spécifiée"))
-    } else {
-      val updatedHop = this.copy(
-        description = Some(newDescription),
-        updatedAt = Instant.now(),
-        version = version + 1
-      )
+  /**
+   * Validation complète de l'agrégat
+   */
+  def validate: List[String] = {
+    var errors = List.empty[String]
 
-      updatedHop.raise(HopDescriptionUpdated(id.value, newDescription.value, version + 1))
-      Right(updatedHop)
+    if (name.value.trim.isEmpty) errors = "Le nom ne peut pas être vide" :: errors
+    if (alphaAcid.value < 0 || alphaAcid.value > 30) errors = "L'acide alpha doit être entre 0 et 30%" :: errors
+    betaAcid.foreach { b =>
+      if (b.value < 0 || b.value > 15) errors = "L'acide bêta doit être entre 0 et 15%" :: errors
     }
+    if (credibilityScore < 0 || credibilityScore > 100) errors = "Le score de crédibilité doit être entre 0 et 100" :: errors
+    if (version < 0) errors = "La version ne peut pas être négative" :: errors
+
+    errors.reverse
   }
 
-  def activate(): Either[DomainError, HopAggregate] = {
-    if (status == HopStatus.Active) {
-      Left(DomainError.validation("Le houblon est déjà actif"))
-    } else if (!hasMinimalRequiredData) {
-      Left(DomainError.businessRule("Le houblon ne peut être activé : données minimales manquantes", "MINIMAL_DATA_REQUIRED"))
-    } else {
-      val updatedHop = this.copy(
-        status = HopStatus.Active,
-        updatedAt = Instant.now(),
-        version = version + 1
-      )
+  /**
+   * Vérifie si l'agrégat est valide
+   */
+  def isValid: Boolean = validate.isEmpty
 
-      updatedHop.raise(HopActivated(id.value, version + 1))
-      Right(updatedHop)
-    }
-  }
-
-  def deactivate(): Either[DomainError, HopAggregate] = {
-    if (status == HopStatus.Inactive) {
-      Left(DomainError.validation("Le houblon est déjà inactif"))
-    } else {
-      val updatedHop = this.copy(
-        status = HopStatus.Inactive,
-        updatedAt = Instant.now(),
-        version = version + 1
-      )
-
-      updatedHop.raise(HopDeactivated(id.value, version + 1))
-      Right(updatedHop)
-    }
-  }
-
-  def updateCredibilityScore(newScore: Int): Either[DomainError, HopAggregate] = {
-    if (newScore < 0 || newScore > 100) {
-      Left(DomainError.validation("Le score de crédibilité doit être entre 0 et 100"))
-    } else if (credibilityScore == newScore) {
-      Left(DomainError.validation("Le score de crédibilité est déjà celui spécifié"))
-    } else {
-      val updatedHop = this.copy(
-        credibilityScore = newScore,
-        updatedAt = Instant.now(),
-        version = version + 1
-      )
-
-      updatedHop.raise(HopCredibilityUpdated(id.value, credibilityScore, newScore, version + 1))
-      Right(updatedHop)
-    }
-  }
-
-  def addAromaProfile(aromaId: String): Either[DomainError, HopAggregate] = {
-    if (aromaProfile.contains(aromaId)) {
-      Left(DomainError.validation("Ce profil d'arôme est déjà associé au houblon"))
-    } else {
-      val updatedHop = this.copy(
-        aromaProfile = aromaProfile :+ aromaId,
-        updatedAt = Instant.now(),
-        version = version + 1
-      )
-
-      updatedHop.raise(HopAromaAdded(id.value, aromaId, version + 1))
-      Right(updatedHop)
-    }
-  }
-
-  private def hasMinimalRequiredData: Boolean = {
-    name.length > 0 && alphaAcid.value >= 0.0 && description.isDefined
+  override def toString: String = {
+    s"HopAggregate(${id.value}, ${name.value}, ${characteristics}, score:$credibilityScore, v$version)"
   }
 }
 
+/**
+ * Objet companion pour la création et les utilitaires
+ */
 object HopAggregate {
+
+  /**
+   * Crée un nouveau HopAggregate avec des valeurs par défaut sensées
+   */
   def create(
-              name: NonEmptyString,
-              alphaAcid: AlphaAcidPercentage,
+              id: String,
+              name: String,
+              alphaAcid: Double,
               origin: HopOrigin,
-              description: Option[NonEmptyString] = None,
-              betaAcid: Option[AlphaAcidPercentage] = None,
-              source: HopSource = HopSource.Manual
-            ): Either[DomainError, HopAggregate] = {
-
-    val hopId = HopId.generate()
+              usage: HopUsage
+            ): HopAggregate = {
     val now = Instant.now()
-    val usage = HopUsage.fromAlphaAcid(alphaAcid.value)
-    val initialCredibility = if (source == HopSource.AI_Discovery) 70 else 95
 
-    val hop = HopAggregate(
-      id = hopId,
-      name = name,
-      alphaAcid = alphaAcid,
-      betaAcid = betaAcid,
+    HopAggregate(
+      id = HopId(id),
+      name = NonEmptyString(name),
+      alphaAcid = AlphaAcidPercentage(alphaAcid),
+      betaAcid = None,
       origin = origin,
       usage = usage,
-      description = description,
+      description = None,
       aromaProfile = List.empty,
-      status = HopStatus.Draft,
-      source = source,
-      credibilityScore = initialCredibility,
+      status = HopStatus.Active,
+      source = HopSource.Manual,
+      credibilityScore = 50, // Score neutre par défaut
       createdAt = now,
       updatedAt = now,
       version = 1
     )
-
-    hop.raise(HopCreated(
-      hopId.value,
-      name.value,
-      alphaAcid.value,
-      origin.code,
-      usage.name,
-      source.name,
-      now,
-      1
-    ))
-
-    Right(hop)
   }
-}
 
-sealed trait HopStatus {
-  def name: String
-}
+  /**
+   * Crée un HopAggregate découvert par IA avec un score de crédibilité initial
+   */
+  def createAiDiscovered(
+                          id: String,
+                          name: String,
+                          alphaAcid: Double,
+                          origin: HopOrigin,
+                          usage: HopUsage,
+                          initialCredibilityScore: Int = 30
+                        ): HopAggregate = {
+    val now = Instant.now()
 
-object HopStatus {
-  case object Draft extends HopStatus { val name = "DRAFT" }
-  case object Active extends HopStatus { val name = "ACTIVE" }
-  case object Inactive extends HopStatus { val name = "INACTIVE" }
-  case object PendingReview extends HopStatus { val name = "PENDING_REVIEW" }
-
-  def fromName(name: String): Option[HopStatus] = name match {
-    case "DRAFT" => Some(Draft)
-    case "ACTIVE" => Some(Active)
-    case "INACTIVE" => Some(Inactive)
-    case "PENDING_REVIEW" => Some(PendingReview)
-    case _ => None
+    HopAggregate(
+      id = HopId(id),
+      name = NonEmptyString(name),
+      alphaAcid = AlphaAcidPercentage(alphaAcid),
+      betaAcid = None,
+      origin = origin,
+      usage = usage,
+      description = None,
+      aromaProfile = List.empty,
+      status = HopStatus.Active,
+      source = HopSource.AI_Discovery,
+      credibilityScore = initialCredibilityScore,
+      createdAt = now,
+      updatedAt = now,
+      version = 1
+    )
   }
-}
 
-sealed trait HopSource {
-  def name: String
-}
+  /**
+   * Crée un HopAggregate importé depuis une source externe
+   */
+  def createImported(
+                      id: String,
+                      name: String,
+                      alphaAcid: Double,
+                      betaAcid: Option[Double],
+                      origin: HopOrigin,
+                      usage: HopUsage,
+                      description: Option[String],
+                      aromas: List[String] = List.empty
+                    ): HopAggregate = {
+    val now = Instant.now()
 
-object HopSource {
-  case object Manual extends HopSource { val name = "MANUAL" }
-  case object AI_Discovery extends HopSource { val name = "AI_DISCOVERY" }
-  case object Import extends HopSource { val name = "IMPORT" }
-
-  def fromName(name: String): Option[HopSource] = name match {
-    case "MANUAL" => Some(Manual)
-    case "AI_DISCOVERY" => Some(AI_Discovery)
-    case "IMPORT" => Some(Import)
-    case _ => None
+    HopAggregate(
+      id = HopId(id),
+      name = NonEmptyString(name),
+      alphaAcid = AlphaAcidPercentage(alphaAcid),
+      betaAcid = betaAcid.map(AlphaAcidPercentage(_)),
+      origin = origin,
+      usage = usage,
+      description = description.filter(_.trim.nonEmpty).map(NonEmptyString(_)),
+      aromaProfile = aromas.distinct,
+      status = HopStatus.Active,
+      source = HopSource.Import,
+      credibilityScore = 80, // Score élevé pour les données importées
+      createdAt = now,
+      updatedAt = now,
+      version = 1
+    )
   }
 }
