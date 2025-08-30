@@ -1,0 +1,520 @@
+/* ==========================================================================
+   Design System — Houblons (styles.css)
+   Moderne, épuré, avec filigrane de houblon en dégradé de verts
+   ========================================================================= */
+
+/* 1) Reset léger + variables CSS ========================================== */
+
+:root {
+    /* Couleurs (clair) */
+    --bg: #f7faf8;
+    --card-bg: rgba(255,255,255,0.9);
+    --card-border: #e4efe7;
+    --card-border-hover: #cfe6d8;
+    --muted: #5c7b6d;
+    --muted-2: #476459;
+    --ink: #0b1c14;
+    --ink-soft: #143a2a;
+    --accent-1: #16a34a;        /* vert */
+    --accent-2: #22c55e;        /* vert clair */
+    --teal: #06b6d4;            /* turquoise pour dégradés */
+    --ring: #a7e2c6;
+    --chip-type-bg: #ecfeff;
+    --chip-type-border: #a5f3fc;
+    --chip-type-ink: #0f766e;
+    --chip-origin-bg: #f0fdf4;
+    --chip-origin-border: #bbf7d0;
+    --chip-origin-ink: #166534;
+    --section-bg: #f7fbf9;
+    --section-border: #e3efe8;
+
+    /* Ombres */
+    --shadow-card: 0 6px 14px rgba(16,185,129,.10);
+    --shadow-card-hover: 0 16px 34px rgba(16,185,129,.18);
+    --shadow-modal: 0 24px 80px rgba(2,6,4,.35);
+
+    /* Rayons / spacing */
+    --r-xs: 8px;
+    --r-s: 12px;
+    --r-m: 14px;
+    --r-l: 18px;
+    --r-xl: 20px;
+
+    --space-1: 4px;
+    --space-2: 6px;
+    --space-3: 8px;
+    --space-4: 10px;
+    --space-5: 12px;
+    --space-6: 14px;
+    --space-7: 16px;
+    --space-8: 18px;
+    --space-9: 20px;
+    --space-10: 24px;
+    --container: 1200px;
+    --gutter: 16px; /* ajout pratique pour calculs */
+    --safe-right: 6px; /* pour éviter que la scrollbar ne “mange” le contenu */
+    --sidebar-top: 12px; /* offset sticky */
+}
+
+/* Mode sombre auto (si l’OS est en dark) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0d1512;
+        --card-bg: rgba(18,26,22,0.8);
+        --card-border: #1e2a25;
+        --card-border-hover: #274338;
+        --muted: #9cc7b5;
+        --muted-2: #b7e0cf;
+        --ink: #eaf5f0;
+        --ink-soft: #d2efe1;
+        --section-bg: #121d19;
+        --section-border: #1e2a25;
+        --ring: #1f6e4e;
+        --shadow-card: 0 6px 14px rgba(0,0,0,.25);
+        --shadow-card-hover: 0 18px 40px rgba(0,0,0,.4);
+        --shadow-modal: 0 24px 80px rgba(0,0,0,.6);
+    }
+}
+
+/* Reset base */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    /* Le body peut rester scrollable, mais on va contraindre le container à 100vh */
+}
+
+/* Focus accessible */
+:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--r-s);
+}
+
+/* Liens neutres par défaut */
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Scrollbar (WebKit) */
+*::-webkit-scrollbar { height: 10px; width: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--teal), var(--accent-2));
+    border-radius: 999px;
+}
+
+
+/* 2) Layout : page, filigrane, container ========================== */
+
+.page { position: relative; min-height: 100vh; overflow-x: hidden; }
+.page__bg {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background-image:
+            radial-gradient(ellipse at 20% 10%, rgba(74,222,128,0.12), transparent 50%),
+            radial-gradient(ellipse at 80% 30%, rgba(34,197,94,0.10), transparent 55%),
+            radial-gradient(ellipse at 70% 80%, rgba(16,185,129,0.10), transparent 55%),
+            url("data:image/svg+xml;utf8, \
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400' opacity='0.07'> \
+<defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'> \
+<stop offset='0%' stop-color='%2306b6d4'/><stop offset='100%' stop-color='%2322c55e'/> \
+</linearGradient></defs> \
+<path d='M200 40c38 30 58 60 62 90 4 30-10 60-34 92 24 22 36 45 36 68 0 37-27 70-64 70s-64-33-64-70c0-23 12-46 36-68-24-32-38-62-34-92 4-30 24-60 62-90z' fill='none' stroke='url(%23g)' stroke-width='16' stroke-linecap='round'/> \
+</svg>");
+    background-repeat: no-repeat;
+    background-size: cover, cover, cover, 60vw;
+    background-position: center, center, center, 70% 40%;
+    filter: saturate(1.05);
+}
+
+/* ⚠️ Container en 2 lignes : [titre] + [layout] et verrouillé à 100vh */
+.container {
+    position: relative; z-index: 1;
+    max-width: var(--container);
+    margin: 0 auto;
+    padding: var(--space-10);
+    height: 100vh;                         /* occupe toute la hauteur viewport */
+    display: grid;
+    grid-template-rows: auto 1fr;          /* 1: titre, 2: layout rempli */
+    gap: var(--space-6);
+}
+.page-title {
+    font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin: 4px 0 0;
+}
+
+/* 3) Contrôles / boutons / formulaires ============================ */
+
+.controls {
+    display: grid;
+    grid-template-columns: 2fr 2fr 2fr auto;
+    gap: 12px;
+    margin: 8px 0 20px;
+    align-items: end;
+}
+@media (max-width: 900px) {
+    .controls { grid-template-columns: 1fr; }
+}
+
+.field label {
+    display: block; font-size: 12px; color: #465; margin-bottom: 6px;
+}
+.field input[type="search"],
+.field input[type="text"],
+.field input[type="range"] {
+    width: 100%;
+    border: 1px solid #d7e2d9;
+    border-radius: var(--r-m);
+    padding: 10px 12px;
+    background: #fff;
+    color: var(--ink);
+}
+@media (prefers-color-scheme: dark) {
+    .field input[type="search"],
+    .field input[type="text"] {
+        background: #111914; border-color: #223c31; color: var(--ink);
+    }
+}
+
+.field input[type="range"] {
+    padding: 0; height: 28px; background: transparent;
+}
+
+/* Slider stylé (WebKit/Chromium/Firefox) */
+input[type="range"] {
+    -webkit-appearance: none; appearance: none; background: transparent;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg, var(--teal), var(--accent-2));
+    height: 6px; border-radius: 999px;
+}
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    margin-top: -6px; height: 18px; width: 18px; border-radius: 999px;
+    background: #fff; border: 2px solid var(--accent-2);
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+input[type="range"]::-moz-range-track {
+    background: linear-gradient(90deg, var(--teal), var(--accent-2));
+    height: 6px; border-radius: 999px;
+}
+input[type="range"]::-moz-range-thumb {
+    height: 18px; width: 18px; border-radius: 999px; background: #fff; border: 2px solid var(--accent-2);
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+
+/* Datalist */
+datalist { font-size: 14px; }
+
+/* Boutons */
+.btn {
+    padding: 10px 14px;
+    border-radius: var(--r-m);
+    background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    color: #fff; border: none;
+    box-shadow: 0 6px 18px rgba(34,197,94,.25);
+    cursor: pointer;
+    transition: filter .15s ease, transform .08s ease;
+}
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: translateY(1px); }
+.btn--ghost {
+    background: transparent; color: var(--ink-soft); border: 1px solid #cde6d7;
+}
+.btn--ghost:hover { background: #eef7f2; }
+
+/* 4) Grille de cartes (cartouches) ================================= */
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+}
+.card {
+    background: var(--card-bg); backdrop-filter: blur(6px);
+    border: 1px solid var(--card-border); border-radius: var(--r-l);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    transition: transform .08s ease, box-shadow .08s ease, border-color .08s ease;
+    animation: cardIn .25s ease both;
+}
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card-hover); border-color: var(--card-border-hover); }
+@keyframes cardIn { from { transform: translateY(3px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+
+.card__header { display: flex; gap: var(--space-3); margin-bottom: var(--space-3); flex-wrap: wrap; align-items: center; }
+.card__title { font-size: 18px; margin: 2px 0 8px; font-weight: 700; letter-spacing: -.01em; }
+.card__body { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.card__footer { margin-top: var(--space-3); color: var(--muted-2); font-size: 12px; }
+.note {
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* Chips */
+.chip { font-size: 12px; padding: 4px 8px; border-radius: 999px; }
+.chip--type { background: var(--chip-type-bg); color: var(--chip-type-ink); border: 1px solid var(--chip-type-border); }
+.chip--origin { background: var(--chip-origin-bg); color: var(--chip-origin-ink); border: 1px solid var(--chip-origin-border); }
+
+.chip--aroma {
+    background: #eef2ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+    cursor: pointer;
+}
+.chip--aroma:hover { filter: brightness(0.98); }
+
+.chip--beer {
+    background: #ecfeff;
+    color: #0f766e;
+    border: 1px solid #a5f3fc;
+    cursor: pointer;
+}
+.chip--beer:hover { filter: brightness(0.98); }
+
+.card .chip { user-select: none; }
+
+/* Paires clé/valeur */
+.kv { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.kv__k { color: var(--muted); }
+.kv__v { font-weight: 700; }
+
+/* 5) Modal / popin ================================================= */
+
+.modal__backdrop {
+    position: fixed; inset: 0; background: rgba(2,6,4,.45);
+    display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 50;
+    animation: fadeIn .15s ease both;
+}
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+.modal {
+    background: #ffffff; border-radius: var(--r-xl); width: min(960px, 96vw);
+    box-shadow: var(--shadow-modal); border: 1px solid #dfeae3;
+    padding: 18px 18px 12px; position: relative;
+    animation: modalIn .2s ease both;
+}
+@media (prefers-color-scheme: dark) {
+    .modal { background: #0f1914; border-color: #223c31; }
+}
+@keyframes modalIn { from { transform: translateY(8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+
+.modal__title {
+    margin: 0 0 6px;
+    font-size: 28px;
+    line-height: 1.15;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, var(--teal), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 1px rgba(0,0,0,.06);
+}
+.section {
+    background: var(--section-bg); border: 1px solid var(--section-border);
+    border-radius: var(--r-m); padding: 12px;
+}
+.section .kv { font-size: 14px; }
+
+.modal__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+/* 6) Visualisation des huiles ===================================== */
+
+.oilbar {
+    display: grid; grid-template-columns: 120px 1fr auto;
+    align-items: center; gap: 8px;
+}
+.oilbar__label { color: #2b674e; font-weight: 600; }
+.oilbar__track { position: relative; height: 10px; background: #e7f3ec; border-radius: 999px; overflow: hidden; }
+.oilbar__range {
+    position: absolute; top: 0; bottom: 0;
+    background: linear-gradient(90deg, var(--teal), var(--accent-2));
+    border-radius: 999px;
+}
+.oilbar__value { font-size: 12px; color: #335f4e; }
+
+/* 7) États / feedback ============================================== */
+
+.status { color: #6b8f7e; }
+.error {
+    background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;
+    padding: 10px 12px; border-radius: var(--r-m);
+}
+
+/* 8) Utilitaires =================================================== */
+
+.hidden { display: none !important; }
+.center { display: grid; place-items: center; }
+.text-right { text-align: right; }
+.text-muted { color: var(--muted); }
+
+/* 9) Impression ==================================================== */
+
+@media print {
+    .page__bg, .controls, .modal__backdrop { display: none !important; }
+    .card { break-inside: avoid; }
+}
+
+/* ==== Modal compacte & multi-colonnes ==== */
+.modal {
+    width: min(1040px, 96vw);
+    padding: 14px 14px 10px;
+    border-radius: 16px;
+}
+.modal__title { font-size: 22px; margin: 0; line-height: 1.2; }
+.modal__desc {
+    color: var(--muted-2);
+    font-size: 14px;
+    line-height: 1.45;
+    margin: 0;
+}
+.modal__head {
+    position: sticky;
+    top: 0;
+    background: inherit;
+    padding-bottom: 8px;
+    z-index: 1;
+    border-bottom: 1px solid #e5efe8;
+}
+.modal__content {
+    max-height: 78vh;
+    overflow: auto;
+    padding-right: 6px;
+}
+.modal__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+@media (max-width: 900px) {
+    .modal__grid { grid-template-columns: 1fr; }
+}
+.section { padding: 10px; border-radius: 12px; }
+.section__title { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.section__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+}
+@media (max-width: 600px) {
+    .section__grid { grid-template-columns: 1fr; }
+}
+.kv { font-size: 13px; gap: 6px; }
+.kv__k { color: var(--muted); }
+.kv__v { font-weight: 600; }
+.oilbar { grid-template-columns: 110px 1fr auto; gap: 6px; }
+.oilbar__track { height: 8px; }
+.oilbar__value { font-size: 12px; }
+.modal__actions { margin-top: 8px; padding-top: 6px; border-top: 1px solid #e5efe8; }
+@media (max-width: 480px) {
+    .chip { font-size: 11px; padding: 3px 6px; }
+}
+
+/* ==========================================================================
+   [OVERRIDE] Layout .layout/.sidebar + panneau de filtres
+   - Colonne gauche visible
+   - Seule la liste à droite défile (overflow sur la grille)
+   ========================================================================== */
+
+.layout{
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) 1fr; /* gauche = filtres ; droite = contenu */
+    gap: var(--gutter);
+    align-items: stretch;  /* important pour remplir la hauteur */
+    min-height: 0;         /* indispensable pour autoriser l'overflow interne */
+}
+
+/* Colonne de filtres (fixe) */
+.sidebar{
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background: var(--card-bg);
+    backdrop-filter: blur(6px);
+    border: 1px solid var(--card-border);
+    border-radius: var(--r-l);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-card);
+    /* pas besoin de sticky si seule la grille scroll — mais on le laisse pour sécurité */
+    position: sticky;
+    top: var(--sidebar-top);
+    align-self: start;
+}
+
+/* Panneau "Filtres appliqués" */
+.filters-panel{
+    background: var(--section-bg);
+    border: 1px solid var(--section-border);
+    border-radius: var(--r-m);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    padding: 12px;
+}
+.filters-panel__title{
+    margin: 0 0 10px 0; font-size: 14px; color: var(--muted);
+}
+.filters-panel__row{
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    align-items: start;
+    gap: 8px;
+    margin-top: 6px;
+}
+.filters-panel__label{
+    font-size: 12px; color: var(--muted); padding-top: 4px;
+}
+
+/* ✅ La grille de droite devient la zone scrollable */
+.layout > .grid{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));  /* 2 colonnes de cartes */
+    gap: 14px;
+    height: 100%;                 /* occupe toute la ligne 2 du container */
+    min-height: 0;                /* autorise le scroll interne */
+    overflow: auto;               /* seule la liste scroll */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    padding-right: var(--safe-right);  /* évite que la scrollbar recouvre le contenu */
+    scrollbar-gutter: stable both-edges;
+}
+
+/* Empilement vertical des filtres dans la sidebar */
+.layout .sidebar .controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6, 14px);
+    margin: 0 0 var(--space-6, 14px);
+}
+.layout .sidebar .controls .field { width: 100%; }
+.layout .sidebar .controls .btn { align-self: flex-start; }
+.layout .sidebar .controls input[type="range"] { width: 100%; }
+.layout .sidebar .controls .field label { margin-bottom: var(--space-3, 8px); }
+
+/* Responsive : en mobile, on revient à un scroll “page” classique */
+@media (max-width: 900px){
+    .container{
+        height: auto;                      /* libère la hauteur */
+        grid-template-rows: auto auto;     /* titre + layout naturellement */
+    }
+    .layout{
+        grid-template-columns: 1fr;
+    }
+    .sidebar{
+        position: static;                  /* plus de sticky */
+    }
+    .layout > .grid{
+        grid-template-columns: 1fr;
+        overflow: visible;                 /* le scroll redevient celui de la page */
+        height: auto;
+    }
+}
+
+/* Option grand écran : 3 colonnes de cartes
+@media (min-width: 1280px){
+    .layout > .grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+}
+*/

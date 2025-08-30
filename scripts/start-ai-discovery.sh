@@ -1,0 +1,2 @@
+# Script démarrage découverte IA
+

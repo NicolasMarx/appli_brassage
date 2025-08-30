@@ -1,0 +1,12 @@
+# --- !Ups
+CREATE INDEX IF NOT EXISTS idx_hop_aromas_hop    ON hop_aromas(hop_id);
+CREATE INDEX IF NOT EXISTS idx_hop_aromas_aroma  ON hop_aromas(aroma_id);
+CREATE INDEX IF NOT EXISTS idx_hop_styles_hop    ON hop_beer_styles(hop_id);
+CREATE INDEX IF NOT EXISTS idx_hop_styles_style  ON hop_beer_styles(style_id);
+CREATE INDEX IF NOT EXISTS idx_substitutes_hop   ON substitutes(hop_id);
+# --- !Downs
+DROP INDEX IF EXISTS idx_hop_aromas_hop;
+DROP INDEX IF EXISTS idx_hop_aromas_aroma;
+DROP INDEX IF EXISTS idx_hop_styles_hop;
+DROP INDEX IF EXISTS idx_hop_styles_style;
+DROP INDEX IF EXISTS idx_substitutes_hop;

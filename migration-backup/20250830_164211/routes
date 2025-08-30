@@ -1,0 +1,37 @@
+# --- Public site
+GET     /                           controllers.FrontendController.index
+
+# --- Admin UI
+GET     /admin                      controllers.admin.AdminPageController.index
+GET     /admin/login                controllers.admin.AdminPageController.login
+GET     /admin/admin.js             controllers.admin.AdminPageController.appJs
+GET     /admin/boot.js              controllers.admin.AdminPageController.bootJs
+GET     /admin/admin.css            controllers.admin.AdminPageController.css
+GET     /admin/*path                controllers.admin.AdminPageController.spa(path: String)
+
+# ---- admin bootstrap (one-shot)
+POST  /api/admin/bootstrap   controllers.admin.AdminBootstrapController.bootstrap
+
+# --- Public API
+GET     /api/hops                   controllers.HopsV2Controller.list(limit: Int ?= 1000)
+GET     /api/aromas                 controllers.AromasController.list
+POST    /api/reseed                 controllers.ReseedController.reseed
+
+# Alias (si le front appelle /hops au lieu de /api/hops)
+GET   /hops       controllers.HopsV2Controller.list(limit: Int ?= 1000)
+GET   /aromas     controllers.AromasController.list
+
+
+# --- Admin API (protégée par session)
+POST    /api/admin/login            controllers.admin.AdminAuthController.login
+POST    /api/admin/logout           controllers.admin.AdminAuthController.logout
+
+GET     /api/admin/users            controllers.admin.AdminUsersController.list
+POST    /api/admin/users            controllers.admin.AdminUsersController.create
+PUT     /api/admin/users/:id        controllers.admin.AdminUsersController.update(id: String)
+DELETE  /api/admin/users/:id        controllers.admin.AdminUsersController.delete(id: String)
+
+# --- Health & assets
+GET     /ping                       controllers.HealthController.ping
+GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+

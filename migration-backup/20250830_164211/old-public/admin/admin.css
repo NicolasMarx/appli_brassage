@@ -1,0 +1,9 @@
+:root { --fg:#0b1020; --bg:#f7f8fb; --card:#fff; --muted:#666; --border:#e7e9f1; }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu}
+#elm-admin{max-width:900px;margin:40px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.login-wrapper{max-width:420px;margin:60px auto}
+.error{color:#b00020}
+.navbar{display:flex;gap:12px;align-items:center;margin:0 0 16px}
+.navbar .spacer{flex:1}

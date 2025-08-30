@@ -1,0 +1,39 @@
+@(hops: Seq[domain.hops.Hop])(implicit req: play.api.mvc.RequestHeader)
+
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="utf-8">
+        <title>My Brew App — Houblons</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <!-- Thème public -->
+        <link rel="stylesheet" href='@controllers.routes.Assets.versioned("site/site.css")' />
+    </head>
+    <body>
+        <div class="navbar">
+            <a href="/">Accueil</a>
+            <a href='@controllers.admin.routes.AdminPageController.login.url'>Admin</a>
+        </div>
+
+            <!-- Conteneur SPA (Elm) -->
+        <div id="site-app" class="container">
+                <!-- Fallback SSR (si JS bloqué) -->
+            <noscript>
+                <h1>Houblons</h1>
+                @if(hops.isEmpty) {
+                    <p>Aucun houblon encore en base.</p>
+                } else {
+                    <ul class="hop-list">
+                    @for(h <- hops) {
+                        <li class="hop-item">@h.name.value</li>
+                    }
+                    </ul>
+                }
+            </noscript>
+        </div>
+
+            <!-- Scripts (CSP-friendly, pas d'inline) -->
+        <script src='@controllers.routes.Assets.versioned("site/site.js")' defer></script>
+        <script src='@controllers.routes.Assets.versioned("site/boot.js")' defer></script>
+    </body>
+</html>

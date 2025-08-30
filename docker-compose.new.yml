@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # BASE DE DONNÉES POSTGRESQL
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: brewing-postgres
+    environment:
+      POSTGRES_DB: brewing_platform
+      POSTGRES_USER: brewing_user
+      POSTGRES_PASSWORD: brewing_password
+      POSTGRES_INITDB_ARGS: --encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    networks:
+      - brewing-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brewing_user -d brewing_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # REDIS POUR CACHE ET SESSIONS
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: brewing-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - brewing-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # =============================================================================
+  # APPLICATION PLAY FRAMEWORK (en développement)
+  # =============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: brewing-app
+    environment:
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/brewing_platform
+      - DATABASE_USER=brewing_user
+      - DATABASE_PASSWORD=brewing_password
+      - REDIS_URL=redis://redis:6379
+      - PLAY_ENV=dev
+    ports:
+      - "9000:9000"
+      - "9999:9999"  # Debug port
+    volumes:
+      - .:/opt/app
+      - sbt_cache:/root/.sbt
+      - ivy_cache:/root/.ivy2
+    networks:
+      - brewing-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # =============================================================================
+  # PGADMIN POUR ADMINISTRATION BDD (développement)
+  # =============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: brewing-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@brewery.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - brewing-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # =============================================================================
+  # NGINX REVERSE PROXY (production)
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    container_name: brewing-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - brewing-network
+    depends_on:
+      - app
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  sbt_cache:
+    driver: local
+  ivy_cache:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  brewing-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

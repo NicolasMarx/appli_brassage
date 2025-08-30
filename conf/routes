@@ -1,0 +1,13 @@
+GET     /                           controllers.HomeController.index()
+
+GET     /api/v1/hops                controllers.api.v1.hops.HopsController.list(page: Int ?= 0, size: Int ?= 20)
+GET     /api/v1/hops/:id            controllers.api.v1.hops.HopsController.detail(id: String)
+POST    /api/v1/hops/search         controllers.api.v1.hops.HopsController.search()
+
+GET     /api/admin/hops             controllers.admin.AdminHopsController.list(page: Int ?= 0, size: Int ?= 20)
+POST    /api/admin/hops             controllers.admin.AdminHopsController.create()
+GET     /api/admin/hops/:id         controllers.admin.AdminHopsController.detail(id: String)
+PUT     /api/admin/hops/:id         controllers.admin.AdminHopsController.update(id: String)
+DELETE  /api/admin/hops/:id         controllers.admin.AdminHopsController.delete(id: String)
+
+GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)

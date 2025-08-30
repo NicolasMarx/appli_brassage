@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8"/>
+    <title>Admin — Import Houblons</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <link rel="stylesheet" href="/admin/admin.css"/>
+    <style>
+        body{margin:0;background:#fafafa;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+        .container{padding:24px;max-width:720px;margin:40px auto}
+        .card{background:#fff;padding:16px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.08)}
+        pre{background:#111;color:#ddd;padding:12px;border-radius:6px;overflow:auto}
+        button{padding:8px 14px;cursor:pointer} input{padding:8px 10px}
+        .hint{color:#666;font-size:14px}
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>Console Admin — Import des houblons (CSV)</h2>
+    <p class="hint">Si rien ne s’affiche, vérifie que <code>/admin/admin.js</code> répond en 200.</p>
+    <div id="app"></div>
+</div>
+<!-- cache-buster v=3 pour forcer un rechargement -->
+<script src="/admin/admin.js?v=3"></script>
+<script src="/admin/boot.js?v=3"></script>
+</body>
+</html>

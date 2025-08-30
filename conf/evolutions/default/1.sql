@@ -1,0 +1,184 @@
+-- conf/evolutions/default/1.sql
+# --- !Ups
+
+-- =============================================================================
+-- SCHÉMA INITIAL - ARCHITECTURE DDD/CQRS AVEC IA
+-- Tables principales : Admin, Audit, références de base
+-- =============================================================================
+
+-- Extension PostgreSQL pour UUID
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- =============================================================================
+-- TABLES ADMIN - Gestion administrateurs avec sécurité renforcée  
+-- =============================================================================
+
+-- Table des administrateurs
+CREATE TABLE admins (
+    id                    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name                  VARCHAR(100) NOT NULL,
+    email                 VARCHAR(254) NOT NULL UNIQUE,
+    password_hash         VARCHAR(255) NOT NULL,
+    role                  VARCHAR(50) NOT NULL CHECK (role IN ('SUPER_ADMIN', 'CONTENT_MANAGER', 'DATA_REVIEWER', 'ANALYST')),
+    status                VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    created_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    last_login_at         TIMESTAMP WITH TIME ZONE,
+    failed_login_attempts INTEGER NOT NULL DEFAULT 0,
+    locked_until          TIMESTAMP WITH TIME ZONE,
+    version               INTEGER NOT NULL DEFAULT 1,
+    updated_at            TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Index pour performances
+CREATE INDEX idx_admins_email ON admins(email);
+CREATE INDEX idx_admins_status ON admins(status);
+CREATE INDEX idx_admins_role ON admins(role);
+
+-- =============================================================================
+-- TABLES AUDIT - Traçabilité complète des modifications
+-- =============================================================================
+
+-- Table des logs d'audit
+CREATE TABLE audit_logs (
+    id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    admin_id      UUID REFERENCES admins(id),
+    action        VARCHAR(50) NOT NULL,
+    resource_type VARCHAR(50) NOT NULL,
+    resource_id   VARCHAR(255),
+    old_values    JSONB,
+    new_values    JSONB,
+    ip_address    INET,
+    user_agent    TEXT,
+    occurred_at   TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    session_id    VARCHAR(255)
+);
+
+-- Index pour performances audit
+CREATE INDEX idx_audit_logs_admin_id ON audit_logs(admin_id);
+CREATE INDEX idx_audit_logs_occurred_at ON audit_logs(occurred_at);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
+CREATE INDEX idx_audit_logs_resource_type ON audit_logs(resource_type);
+
+-- =============================================================================
+-- TABLES RÉFÉRENCES - Données de référence partagées
+-- =============================================================================
+
+-- Table des origines géographiques
+CREATE TABLE origins (
+    id          VARCHAR(10) PRIMARY KEY, -- 'US', 'DE', 'CZ', etc.
+    name        VARCHAR(100) NOT NULL,
+    region      VARCHAR(100),
+    description TEXT,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Table des styles de bière
+CREATE TABLE beer_styles (
+    id          VARCHAR(50) PRIMARY KEY, -- 'ipa', 'pale-ale', etc.
+    name        VARCHAR(100) NOT NULL,
+    category    VARCHAR(50),
+    description TEXT,
+    abv_min     DECIMAL(3,1),
+    abv_max     DECIMAL(3,1),
+    ibu_min     INTEGER,
+    ibu_max     INTEGER,
+    srm_min     INTEGER,
+    srm_max     INTEGER,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Table des profils d'arômes
+CREATE TABLE aroma_profiles (
+    id          VARCHAR(50) PRIMARY KEY, -- 'citrus', 'floral', 'piney', etc.
+    name        VARCHAR(100) NOT NULL,
+    category    VARCHAR(50), -- 'fruity', 'spicy', 'herbal', etc.
+    description TEXT,
+    created_at  TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- =============================================================================
+-- DONNÉES INITIALES - Références de base
+-- =============================================================================
+
+-- Origines principales
+INSERT INTO origins (id, name, region, description) VALUES
+('US', 'États-Unis', 'Amérique du Nord', 'Principal producteur de houblons au monde'),
+('DE', 'Allemagne', 'Europe', 'Houblons nobles traditionnels'),
+('CZ', 'République Tchèque', 'Europe', 'Berceau du Saaz'),
+('UK', 'Royaume-Uni', 'Europe', 'Houblons britanniques classiques'), 
+('NZ', 'Nouvelle-Zélande', 'Océanie', 'Houblons aux profils uniques'),
+('AU', 'Australie', 'Océanie', 'Houblons Galaxy et autres'),
+('BE', 'Belgique', 'Europe', 'Houblons pour bières belges'),
+('FR', 'France', 'Europe', 'Houblons français traditionnels'),
+('CA', 'Canada', 'Amérique du Nord', 'Houblons canadiens'),
+('JP', 'Japon', 'Asie', 'Houblons japonais modernes');
+
+-- Profils d'arômes principaux
+INSERT INTO aroma_profiles (id, name, category, description) VALUES
+('citrus', 'Agrume', 'fruity', 'Arômes de citron, orange, pamplemousse'),
+('floral', 'Floral', 'floral', 'Arômes floraux délicats'),
+('piney', 'Pin', 'herbal', 'Arômes résineux de pin'),
+('spicy', 'Épicé', 'spicy', 'Notes épicées et poivrées'),
+('tropical', 'Fruits tropicaux', 'fruity', 'Mangue, ananas, fruit de la passion'),
+('stone-fruit', 'Fruits à noyau', 'fruity', 'Pêche, abricot, prune'),
+('herbal', 'Herbal', 'herbal', 'Notes herbacées et végétales'),
+('earthy', 'Terreux', 'earthy', 'Notes terreuses et minérales'),
+('berry', 'Fruits rouges', 'fruity', 'Cassis, framboise, mûre'),
+('dank', 'Cannabis', 'herbal', 'Arômes puissants et verts');
+
+-- Styles de bière principaux
+INSERT INTO beer_styles (id, name, category, abv_min, abv_max, ibu_min, ibu_max, srm_min, srm_max) VALUES
+('ipa', 'India Pale Ale', 'Ale', 5.5, 7.5, 40, 70, 3, 14),
+('pale-ale', 'Pale Ale', 'Ale', 4.5, 6.2, 25, 50, 3, 10),
+('pils', 'Pilsner', 'Lager', 4.2, 5.8, 25, 45, 2, 6),
+('porter', 'Porter', 'Ale', 4.0, 6.5, 18, 35, 12, 30),
+('stout', 'Stout', 'Ale', 4.0, 8.0, 20, 60, 25, 40),
+('weizen', 'Weissbier', 'Wheat', 4.3, 5.6, 8, 15, 2, 6),
+('saison', 'Saison', 'Ale', 5.0, 7.0, 20, 35, 3, 14),
+('lager', 'Lager', 'Lager', 4.2, 5.4, 8, 25, 2, 4);
+
+-- =============================================================================
+-- FONCTIONS UTILITAIRES
+-- =============================================================================
+
+-- Fonction de mise à jour automatique du timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Trigger pour la table admins
+CREATE TRIGGER update_admins_updated_at 
+    BEFORE UPDATE ON admins 
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- =============================================================================
+-- PREMIER ADMIN (Super Admin par défaut)
+-- =============================================================================
+
+-- Mot de passe: admin123 (à changer en production)
+-- Hash généré avec bcrypt strength 12
+INSERT INTO admins (id, name, email, password_hash, role, status) VALUES (
+    uuid_generate_v4(),
+    'Administrateur Principal',
+    'admin@brewery.com',
+    '$2a$12$YQZrF8CCf9wvJZ7GQFd1AeSsv2oxEY5Hq8fz7.GnEK8qS7uHXgUfW',
+    'SUPER_ADMIN',
+    'ACTIVE'
+);
+
+# --- !Downs
+
+DROP TRIGGER IF EXISTS update_admins_updated_at ON admins;
+DROP FUNCTION IF EXISTS update_updated_at_column();
+
+DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS beer_styles;
+DROP TABLE IF EXISTS aroma_profiles;
+DROP TABLE IF EXISTS origins;
+DROP TABLE IF EXISTS admins;
+
+DROP EXTENSION IF EXISTS "uuid-ossp";

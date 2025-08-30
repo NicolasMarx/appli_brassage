@@ -1,0 +1,27 @@
+@()(implicit req: play.api.mvc.RequestHeader)
+@import play.filters.csrf.CSRF
+
+@defining(CSRF.getToken(req).map(_.value).getOrElse("")) { csrfValue =>
+    @defining(req.session.get("admin").isDefined) { isAuth =>
+    <!DOCTYPE html>
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8" />
+                <title>Console Admin</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+                <meta name="csrf-token" content="@csrfValue" />
+                <meta name="admin-auth" content="@if(isAuth) {true} else {false}" />
+
+                <link rel="stylesheet" href='@controllers.admin.routes.AdminPageController.css' />
+            </head>
+            <body>
+                <noscript>Cette interface nécessite JavaScript.</noscript>
+                <div id="elm-admin">Chargement…</div>
+
+                <script src='@controllers.admin.routes.AdminPageController.appJs' defer></script>
+                <script src='@controllers.admin.routes.AdminPageController.bootJs' defer></script>
+            </body>
+        </html>
+    }
+}
