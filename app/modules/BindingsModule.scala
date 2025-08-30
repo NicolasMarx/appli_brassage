@@ -1,28 +1,23 @@
 package modules
 
 import com.google.inject.AbstractModule
-
-// ---- Imports adaptés à votre structure locale ----
-// Ajustez ces imports selon vos packages réels
-
-// Si vous avez ces services dans votre structure :
-// import application.services.hops.HopService
+import domain.hops.repositories.{HopReadRepository, HopWriteRepository}
+import infrastructure.persistence.slick.repositories.hops.{SlickHopReadRepository, SlickHopWriteRepository}
 
 /**
- * Bindings Guice temporaire - adapté à votre structure locale actuelle
+ * Bindings Guice - Connecte les interfaces du domaine aux implémentations Slick
  */
 final class BindingsModule extends AbstractModule {
   override def configure(): Unit = {
 
-    // ===== Bindings temporaires - commentez/décommentez selon vos besoins =====
+    // ===== HOP REPOSITORIES =====
+    bind(classOf[HopReadRepository]).to(classOf[SlickHopReadRepository])
+    bind(classOf[HopWriteRepository]).to(classOf[SlickHopWriteRepository])
 
-    // Si vous avez HopService :
-    // bind(classOf[HopService]).asEagerSingleton()
+    // TODO: Ajouter les autres repositories quand ils seront prêts
+    // bind(classOf[AdminReadRepository]).to(classOf[SlickAdminReadRepository])
+    // bind(classOf[AdminWriteRepository]).to(classOf[SlickAdminWriteRepository])
 
-    // Ajoutez ici les bindings qui correspondent à vos classes existantes
-    // Par exemple, si vous avez d'autres services ou repositories :
-    // bind(classOf[VotreService]).asEagerSingleton()
-
-    println("BindingsModule chargé - configuration minimale")
+    println("BindingsModule chargé - Repositories connectés à PostgreSQL")
   }
 }

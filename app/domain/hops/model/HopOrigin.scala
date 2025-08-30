@@ -1,75 +1,43 @@
-// app/domain/hops/model/HopOrigin.scala
 package domain.hops.model
 
-import play.api.libs.json._
+case class HopOrigin(code: String, name: String, region: String) {
 
-final case class HopOrigin private (code: String, name: String, region: String) {
-  override def toString: String = s"$name ($code)"
+  /**
+   * Détermine si l'origine est considérée comme "noble"
+   * Les houblons nobles viennent traditionnellement d'Europe
+   */
+  def isNoble: Boolean = code.toUpperCase match {
+    case "DE" | "CZ" | "UK" | "AT" | "BE" | "PL" => true // Allemagne, République Tchèque, UK, Autriche, Belgique, Pologne
+    case _ => false
+  }
 
-  def isNoble: Boolean = HopOrigin.NobleOrigins.contains(code)
-  def isNewWorld: Boolean = HopOrigin.NewWorldOrigins.contains(code)
-  def isTraditional: Boolean = HopOrigin.TraditionalOrigins.contains(code)
+  /**
+   * Détermine si l'origine est du "Nouveau Monde"
+   * Principalement Amérique du Nord, Océanie et certaines régions modernes
+   */
+  def isNewWorld: Boolean = code.toUpperCase match {
+    case "US" | "CA" | "AU" | "NZ" | "AR" | "CL" | "ZA" => true // USA, Canada, Australie, Nouvelle-Zélande, Argentine, Chili, Afrique du Sud
+    case _ => false
+  }
 }
 
 object HopOrigin {
-  // Origines nobles traditionnelles
-  val NobleOrigins = Set("DE", "CZ", "BE")
-
-  // Nouveaux pays producteurs
-  val NewWorldOrigins = Set("US", "AU", "NZ", "CA")
-
-  // Origines traditionnelles européennes
-  val TraditionalOrigins = Set("DE", "CZ", "BE", "UK", "FR")
-
-  // Origines prédéfinies
-  val US = new HopOrigin("US", "États-Unis", "Amérique du Nord")
-  val DE = new HopOrigin("DE", "Allemagne", "Europe")
-  val CZ = new HopOrigin("CZ", "République Tchèque", "Europe")
-  val UK = new HopOrigin("UK", "Royaume-Uni", "Europe")
-  val NZ = new HopOrigin("NZ", "Nouvelle-Zélande", "Océanie")
-  val AU = new HopOrigin("AU", "Australie", "Océanie")
-  val BE = new HopOrigin("BE", "Belgique", "Europe")
-  val FR = new HopOrigin("FR", "France", "Europe")
-  val CA = new HopOrigin("CA", "Canada", "Amérique du Nord")
-  val JP = new HopOrigin("JP", "Japon", "Asie")
-
-  val all: Map[String, HopOrigin] = Map(
-    "US" -> US, "DE" -> DE, "CZ" -> CZ, "UK" -> UK, "NZ" -> NZ,
-    "AU" -> AU, "BE" -> BE, "FR" -> FR, "CA" -> CA, "JP" -> JP
-  )
-
-  def apply(code: String): Either[String, HopOrigin] = {
-    val upperCode = code.trim.toUpperCase
-    all.get(upperCode) match {
-      case Some(origin) => Right(origin)
-      case None => Left(s"Origine houblon invalide: '$code'. Origines valides: ${all.keys.mkString(", ")}")
-    }
-  }
-
-  def fromCode(code: String): Option[HopOrigin] = all.get(code.trim.toUpperCase)
-
-  def fromString(value: String): HopOrigin = {
-    apply(value) match {
-      case Right(origin) => origin
-      case Left(error) => throw new IllegalArgumentException(error)
-    }
-  }
-
-  // Groupement par caractéristiques
-  def getNobleOrigins: List[HopOrigin] = all.values.filter(_.isNoble).toList.sortBy(_.name)
-  def getNewWorldOrigins: List[HopOrigin] = all.values.filter(_.isNewWorld).toList.sortBy(_.name)
-  def getTraditionalOrigins: List[HopOrigin] = all.values.filter(_.isTraditional).toList.sortBy(_.name)
-
-  implicit val hopOriginFormat: Format[HopOrigin] = new Format[HopOrigin] {
-    def reads(json: JsValue): JsResult[HopOrigin] = {
-      json.validate[String].flatMap { code =>
-        HopOrigin(code) match {
-          case Right(origin) => JsSuccess(origin)
-          case Left(error) => JsError(error)
-        }
-      }
-    }
-
-    def writes(origin: HopOrigin): JsValue = JsString(origin.code)
+  def fromCode(code: String): Option[HopOrigin] = code.toUpperCase match {
+    case "US" => Some(HopOrigin("US", "United States", "North America"))
+    case "DE" => Some(HopOrigin("DE", "Germany", "Europe"))
+    case "UK" => Some(HopOrigin("UK", "United Kingdom", "Europe"))
+    case "CZ" => Some(HopOrigin("CZ", "Czech Republic", "Europe"))
+    case "NZ" => Some(HopOrigin("NZ", "New Zealand", "Oceania"))
+    case "AU" => Some(HopOrigin("AU", "Australia", "Oceania"))
+    case "FR" => Some(HopOrigin("FR", "France", "Europe"))
+    case "CA" => Some(HopOrigin("CA", "Canada", "North America"))
+    case "BE" => Some(HopOrigin("BE", "Belgium", "Europe"))
+    case "AT" => Some(HopOrigin("AT", "Austria", "Europe"))
+    case "PL" => Some(HopOrigin("PL", "Poland", "Europe"))
+    case "JP" => Some(HopOrigin("JP", "Japan", "Asia"))
+    case "AR" => Some(HopOrigin("AR", "Argentina", "South America"))
+    case "CL" => Some(HopOrigin("CL", "Chile", "South America"))
+    case "ZA" => Some(HopOrigin("ZA", "South Africa", "Africa"))
+    case _ => None
   }
 }
