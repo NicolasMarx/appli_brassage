@@ -1,10 +1,10 @@
 package domain.malts.repositories
 
 import domain.malts.model.{MaltAggregate, MaltId}
-import domain.common.PagedResult
+import domain.common.PagedResult  // ✅ CORRIGÉ: Import depuis domain.common
 import scala.concurrent.Future
 
-// Types utilitaires simplifiés pour les méthodes avancées
+// Types utilitaires pour les méthodes avancées
 case class MaltSubstitution(
   id: String,
   maltId: MaltId,
@@ -27,11 +27,11 @@ trait MaltReadRepository {
   def findAll(page: Int = 0, pageSize: Int = 20, activeOnly: Boolean = true): Future[List[MaltAggregate]]
   def count(activeOnly: Boolean = true): Future[Long]
   
-  // Méthodes avancées utilisées dans les handlers
+  // ✅ CORRIGÉ: Utilise domain.common.PagedResult
   def findSubstitutes(maltId: MaltId): Future[List[MaltSubstitution]]
   def findCompatibleWithBeerStyle(beerStyleId: String, page: Int, pageSize: Int): Future[PagedResult[MaltCompatibility]]
   
-  // Méthode de recherche avancée utilisée dans les handlers
+  // ✅ CORRIGÉ: Utilise domain.common.PagedResult
   def findByFilters(
     maltType: Option[String] = None,
     minEBC: Option[Double] = None,

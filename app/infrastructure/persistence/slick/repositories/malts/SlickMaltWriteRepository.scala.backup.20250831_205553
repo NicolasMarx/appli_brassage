@@ -1,0 +1,38 @@
+package infrastructure.persistence.slick.repositories.malts
+
+import domain.malts.model.{MaltAggregate, MaltId}
+import domain.malts.repositories.MaltWriteRepository
+import infrastructure.persistence.slick.tables.MaltTables
+import slick.jdbc.JdbcProfile
+import javax.inject.{Inject, Singleton}
+import scala.concurrent.{ExecutionContext, Future}
+
+@Singleton
+class SlickMaltWriteRepository @Inject()(
+  val profile: JdbcProfile
+)(implicit ec: ExecutionContext) extends MaltWriteRepository with MaltTables {
+  
+  import profile.api._
+  
+  // ✅ CORRIGÉ: Implémentation des méthodes requises avec bonnes signatures
+  
+  override def create(malt: MaltAggregate): Future[Unit] = {
+    val row = aggregateToRow(malt)
+    val action = malts += row
+    
+    profile.api.Database.forConfig("default").run(action).map(_ => ())
+  }
+  
+  override def update(malt: MaltAggregate): Future[Unit] = {
+    val row = aggregateToRow(malt)
+    val action = malts.filter(_.id === malt.id.value).update(row)
+    
+    profile.api.Database.forConfig("default").run(action).map(_ => ())
+  }
+  
+  override def delete(id: MaltId): Future[Unit] = {  // ✅ CORRIGÉ: Future[Unit]
+    val action = malts.filter(_.id === id.value).delete
+    
+    profile.api.Database.forConfig("default").run(action).map(_ => ())
+  }
+}

@@ -3,7 +3,7 @@ package application.queries.admin.malts.handlers
 import application.queries.admin.malts.{AdminMaltListQuery}
 import application.queries.admin.malts.readmodels.AdminMaltReadModel
 import domain.malts.repositories.MaltReadRepository
-import domain.malts.model.{MaltType, MaltStatus, MaltSource}
+import domain.malts.model._  // Simplified import
 import domain.common.PagedResult
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,7 +31,7 @@ class AdminMaltListQueryHandler @Inject()(
         items = adminReadModels,
         currentPage = query.page,
         pageSize = query.pageSize,
-        totalCount = adminReadModels.length,
+        totalCount = adminReadModels.length.toLong,
         hasNext = false
       ))
     }.recover {

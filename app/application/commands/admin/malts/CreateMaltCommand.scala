@@ -1,7 +1,7 @@
 package application.commands.admin.malts
 
 import domain.malts.model._
-import domain.shared._
+// import domain.shared._ // Unused import removed
 import domain.common.DomainError
 
 /**

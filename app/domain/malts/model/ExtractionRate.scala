@@ -3,33 +3,54 @@ package domain.malts.model
 import play.api.libs.json._
 
 /**
- * Value Object pour taux d'extraction des malts avec catégories
+ * Value Object ExtractionRate - Taux d'extraction avec validation et catégorisation
  */
-case class ExtractionRate private(value: Double) extends AnyVal {
-  def asPercentage: String = f"${value}%.1f%%"
-  
-  def extractionCategory: String = {
-    if (value >= 82) "Très élevé"
-    else if (value >= 79) "Élevé"
-    else if (value >= 75) "Moyen"
-    else if (value >= 70) "Faible"
-    else "Très faible"
-  }
+final case class ExtractionRate private (value: Double) extends AnyVal {
+  def percentage: Double = value * 100
+  def extractionCategory: String = ExtractionRate.getCategory(value)
+  def isHighExtraction: Boolean = value >= 0.82
+  def isLowExtraction: Boolean = value <= 0.75
 }
 
 object ExtractionRate {
   
   def apply(value: Double): Either[String, ExtractionRate] = {
-    if (value < 0) {
-      Left("Le taux d'extraction ne peut pas être négatif")
-    } else if (value > 100) {
-      Left("Le taux d'extraction ne peut pas dépasser 100%")
+    if (value < 0.5) {
+      Left(s"Le taux d'extraction doit être au moins 50%: ${value * 100}%")
+    } else if (value > 1.0) {
+      Left(s"Le taux d'extraction ne peut excéder 100%: ${value * 100}%")
     } else {
       Right(new ExtractionRate(value))
     }
   }
   
-  def unsafe(value: Double): ExtractionRate = new ExtractionRate(value)
+  def fromPercentage(percentage: Double): Either[String, ExtractionRate] = {
+    apply(percentage / 100.0)
+  }
   
-  implicit val format: Format[ExtractionRate] = Json.valueFormat[ExtractionRate]
+  def getCategory(rate: Double): String = rate match {
+    case v if v >= 0.85 => "Très élevé"
+    case v if v >= 0.82 => "Élevé"
+    case v if v >= 0.78 => "Moyen"
+    case v if v >= 0.75 => "Faible"
+    case _              => "Très faible"
+  }
+  
+  // Constantes typiques
+  def HIGH_QUALITY_BASE: ExtractionRate = ExtractionRate(0.85).getOrElse(throw new Exception("Invalid extraction"))
+  def STANDARD_BASE: ExtractionRate = ExtractionRate(0.82).getOrElse(throw new Exception("Invalid extraction"))
+  def CRYSTAL_AVERAGE: ExtractionRate = ExtractionRate(0.75).getOrElse(throw new Exception("Invalid extraction"))
+  def ROASTED_AVERAGE: ExtractionRate = ExtractionRate(0.70).getOrElse(throw new Exception("Invalid extraction"))
+  
+  implicit val format: Format[ExtractionRate] = new Format[ExtractionRate] {
+    def reads(json: JsValue): JsResult[ExtractionRate] = {
+      json.validate[Double].flatMap { value =>
+        ExtractionRate(value) match {
+          case Right(rate) => JsSuccess(rate)
+          case Left(error) => JsError(error)
+        }
+      }
+    }
+    def writes(rate: ExtractionRate): JsValue = JsNumber(rate.value)
+  }
 }

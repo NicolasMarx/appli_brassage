@@ -3,7 +3,8 @@ package domain.common
 import play.api.libs.json._
 
 /**
- * Wrapper générique pour les résultats paginés
+ * Résultat paginé générique pour toutes les requêtes
+ * Utilisé par tous les domaines pour la cohérence
  */
 case class PagedResult[T](
   items: List[T],
@@ -12,27 +13,18 @@ case class PagedResult[T](
   totalCount: Long,
   hasNext: Boolean
 ) {
-  val totalPages: Int = Math.ceil(totalCount.toDouble / pageSize).toInt
-  val hasPrevious: Boolean = currentPage > 0
+  def hasPrevious: Boolean = currentPage > 0
+  def totalPages: Long = Math.ceil(totalCount.toDouble / pageSize).toLong
+  def isLastPage: Boolean = currentPage >= totalPages - 1
 }
 
 object PagedResult {
+  def empty[T]: PagedResult[T] = PagedResult(List.empty, 0, 20, 0, hasNext = false)
   
-  def empty[T]: PagedResult[T] = PagedResult(
-    items = List.empty,
-    currentPage = 0,
-    pageSize = 20,
-    totalCount = 0,
-    hasNext = false
-  )
-  
-  def single[T](item: T): PagedResult[T] = PagedResult(
-    items = List(item),
-    currentPage = 0,
-    pageSize = 1,
-    totalCount = 1,
-    hasNext = false
-  )
+  def apply[T](items: List[T], page: Int, pageSize: Int, totalCount: Long): PagedResult[T] = {
+    val hasNext = (page + 1) * pageSize < totalCount
+    PagedResult(items, page, pageSize, totalCount, hasNext)
+  }
   
   implicit def format[T: Format]: Format[PagedResult[T]] = Json.format[PagedResult[T]]
 }

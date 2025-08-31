@@ -1,7 +1,7 @@
 package application.commands.admin.malts
 
 import domain.common.DomainError
-import domain.shared.NonEmptyString
+// import domain.shared.NonEmptyString // Unused import removed
 
 case class UpdateMaltCommand(
   id: String,

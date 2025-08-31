@@ -1,0 +1,10 @@
+package modules
+
+import com.google.inject.AbstractModule
+
+class BindingsModule extends AbstractModule {
+  override def configure(): Unit = {
+    // Aucun binding explicite - utilisation des annotations @Singleton
+    // Les repositories avec @Singleton seront automatiquement découverts
+  }
+}
