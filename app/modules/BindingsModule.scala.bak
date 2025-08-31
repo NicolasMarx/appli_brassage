@@ -2,8 +2,10 @@ package modules
 
 import com.google.inject.AbstractModule
 import domain.hops.repositories.{HopReadRepository, HopWriteRepository}
-import domain.malts.repositories.{MaltReadRepository, MaltWriteRepository}
 import infrastructure.persistence.slick.repositories.hops.{SlickHopReadRepository, SlickHopWriteRepository}
+
+// Import repositories malts
+import domain.malts.repositories.{MaltReadRepository, MaltWriteRepository}  
 import infrastructure.persistence.slick.repositories.malts.{SlickMaltReadRepository, SlickMaltWriteRepository}
 
 /**
@@ -16,10 +18,10 @@ final class BindingsModule extends AbstractModule {
     bind(classOf[HopReadRepository]).to(classOf[SlickHopReadRepository])
     bind(classOf[HopWriteRepository]).to(classOf[SlickHopWriteRepository])
 
-    // ===== MALT REPOSITORIES (NOUVEAU) =====
+    // ===== MALT REPOSITORIES =====
     bind(classOf[MaltReadRepository]).to(classOf[SlickMaltReadRepository])
     bind(classOf[MaltWriteRepository]).to(classOf[SlickMaltWriteRepository])
 
-    println("BindingsModule chargé - Repositories Hops + Malts connectés à PostgreSQL")
+    println("BindingsModule chargé - Repositories Hops et Malts connectés à PostgreSQL")
   }
 }

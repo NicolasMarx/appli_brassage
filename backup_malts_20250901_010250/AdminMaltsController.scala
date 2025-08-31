@@ -35,16 +35,7 @@ class AdminMaltsController @Inject()(
         "maltType" -> malt.maltType.name,
         "ebcColor" -> malt.ebcColor.value,
         "extractionRate" -> malt.extractionRate.value,
-        "diastaticPower" -> malt.diastaticPower.value,
-        "originCode" -> malt.originCode,
-        "description" -> malt.description,
-        "flavorProfiles" -> malt.flavorProfiles,
-        "source" -> malt.source.name,
-        "isActive" -> malt.isActive,
-        "credibilityScore" -> malt.credibilityScore,
-        "createdAt" -> malt.createdAt.toString,
-        "updatedAt" -> malt.updatedAt.toString,
-        "version" -> malt.version
+        "isActive" -> malt.isActive
       ))
       
       Ok(Json.obj(
@@ -53,7 +44,7 @@ class AdminMaltsController @Inject()(
           "currentPage" -> page,
           "pageSize" -> pageSize,
           "totalCount" -> totalCount,
-          "hasNext" -> ((page + 1) * pageSize < totalCount)
+          "hasNext" -> ((page + 1) * pageSize < totalCount.toInt)
         )
       ))
     }
@@ -61,35 +52,16 @@ class AdminMaltsController @Inject()(
 
   // Stubs pour les autres méthodes
   def create(): Action[AnyContent] = Action { 
-    BadRequest(Json.obj("error" -> "Création non implémentée"))
+    BadRequest(Json.obj("error" -> "Non implémenté"))
   }
-  
   def detail(id: String, includeAuditLog: Boolean = false, includeSubstitutes: Boolean = true, 
              includeBeerStyles: Boolean = true, includeStatistics: Boolean = false): Action[AnyContent] = Action {
-    NotImplemented(Json.obj("error" -> "Détail non implémenté"))
+    NotImplemented
   }
-  
-  def update(id: String): Action[AnyContent] = Action { 
-    NotImplemented(Json.obj("error" -> "Mise à jour non implémentée")) 
-  }
-  
-  def delete(id: String): Action[AnyContent] = Action { 
-    NotImplemented(Json.obj("error" -> "Suppression non implémentée")) 
-  }
-  
-  def statistics(): Action[AnyContent] = Action { 
-    NotImplemented(Json.obj("error" -> "Statistiques non implémentées")) 
-  }
-  
-  def needsReview(page: Int = 0, pageSize: Int = 20, maxCredibility: Int = 70): Action[AnyContent] = Action {
-    NotImplemented(Json.obj("error" -> "Révision non implémentée"))
-  }
-  
-  def adjustCredibility(id: String): Action[AnyContent] = Action {
-    NotImplemented(Json.obj("error" -> "Ajustement crédibilité non implémenté"))
-  }
-  
-  def batchImport(): Action[AnyContent] = Action {
-    NotImplemented(Json.obj("error" -> "Import batch non implémenté"))
-  }
+  def update(id: String): Action[AnyContent] = Action { NotImplemented }
+  def delete(id: String): Action[AnyContent] = Action { NotImplemented }
+  def statistics(): Action[AnyContent] = Action { NotImplemented }
+  def needsReview(page: Int = 0, pageSize: Int = 20, maxCredibility: Int = 70): Action[AnyContent] = Action { NotImplemented }
+  def adjustCredibility(id: String): Action[AnyContent] = Action { NotImplemented }
+  def batchImport(): Action[AnyContent] = Action { NotImplemented }
 }

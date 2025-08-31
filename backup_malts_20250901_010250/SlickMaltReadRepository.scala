@@ -21,7 +21,7 @@ with HasDatabaseConfigProvider[JdbcProfile] {
   
   // Définition directe de la table dans le repository
   case class MaltRow(
-    id: String,
+    id: java.util.UUID,
     name: String,
     maltType: String,
     ebcColor: Double,
