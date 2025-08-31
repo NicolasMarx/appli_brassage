@@ -1,4 +1,4 @@
-package interfaces.http.api.v1.malts
+package controllers.api.v1.malts
 
 import play.api.mvc._
 import play.api.libs.json._

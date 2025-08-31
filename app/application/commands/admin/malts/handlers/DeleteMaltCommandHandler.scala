@@ -6,17 +6,15 @@ import domain.malts.repositories.{MaltReadRepository, MaltWriteRepository}
 import domain.common.DomainError
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Success, Failure}
 
 /**
  * Handler pour la suppression de malts
- * Gère suppression logique (désactivation) ou physique selon contexte
  */
 @Singleton
 class DeleteMaltCommandHandler @Inject()(
-                                          maltReadRepo: MaltReadRepository,
-                                          maltWriteRepo: MaltWriteRepository
-                                        )(implicit ec: ExecutionContext) {
+  maltReadRepo: MaltReadRepository,
+  maltWriteRepo: MaltWriteRepository
+)(implicit ec: ExecutionContext) {
 
   def handle(command: DeleteMaltCommand): Future[Either[DomainError, Unit]] = {
     command.validate() match {
@@ -41,57 +39,22 @@ class DeleteMaltCommandHandler @Inject()(
     }
   }
 
-  private def executeDelete(
-                             malt: MaltAggregate,
-                             command: DeleteMaltCommand
-                           ): Future[Either[DomainError, Unit]] = {
-
+  private def executeDelete(malt: MaltAggregate, command: DeleteMaltCommand): Future[Either[DomainError, Unit]] = {
     if (command.forceDelete) {
-      // Suppression physique (dangereuse, pour admin uniquement)
-      physicalDelete(malt.id)
+      maltWriteRepo.delete(malt.id).map(_ => Right(())).recover {
+        case ex: Exception =>
+          Left(DomainError.validation(s"Erreur lors de la suppression: ${ex.getMessage}"))
+      }
     } else {
-      // Suppression logique (désactivation - recommandée)
-      logicalDelete(malt, command.reason.getOrElse("Suppression via API"))
-    }
-  }
-
-  private def logicalDelete(malt: MaltAggregate, reason: String): Future[Either[DomainError, Unit]] = {
-    malt.deactivate(reason) match {
-      case Left(domainError) =>
-        Future.successful(Left(domainError))
-      case Right(deactivatedMalt) =>
-        maltWriteRepo.update(deactivatedMalt).map { _ =>
-          // TODO: Publier MaltDeactivated event
-          Right(())
-        }.recover {
-          case ex: Exception =>
-            Left(DomainError.validation(s"Erreur lors de la désactivation: ${ex.getMessage}"))
-        }
-    }
-  }
-
-  private def physicalDelete(maltId: MaltId): Future[Either[DomainError, Unit]] = {
-    maltWriteRepo.delete(maltId).map { _ =>
-      // TODO: Publier MaltDeleted event
-      Right(())
-    }.recover {
-      case ex: Exception =>
-        Left(DomainError.validation(s"Erreur lors de la suppression physique: ${ex.getMessage}"))
-    }
-  }
-
-  /**
-   * Vérifications de sécurité avant suppression physique
-   */
-  private def canPhysicallyDelete(malt: MaltAggregate): Future[Either[DomainError, Unit]] = {
-    // TODO: Vérifier références dans recipes, etc.
-    if (malt.isActive) {
-      Future.successful(Left(DomainError.businessRule(
-        "Impossible de supprimer un malt actif. Désactivez-le d'abord.",
-        "CANNOT_DELETE_ACTIVE_MALT"
-      )))
-    } else {
-      Future.successful(Right(()))
+      // Suppression logique
+      malt.deactivate(command.reason.getOrElse("Suppression via API")) match {
+        case Left(error) => Future.successful(Left(error))
+        case Right(deactivatedMalt) =>
+          maltWriteRepo.update(deactivatedMalt).map(_ => Right(())).recover {
+            case ex: Exception =>
+              Left(DomainError.validation(s"Erreur lors de la désactivation: ${ex.getMessage}"))
+          }
+      }
     }
   }
 }

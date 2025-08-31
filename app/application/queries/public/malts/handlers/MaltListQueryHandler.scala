@@ -1,18 +1,20 @@
 package application.queries.public.malts.handlers
 
-import application.queries.public.malts.{MaltListQuery, MaltReadModel}
-import domain.malts.model._
-import domain.malts.repositories.{MaltReadRepository, PagedResult}
+import application.queries.public.malts.{MaltListQuery}
+import application.queries.public.malts.readmodels.MaltReadModel
+import domain.malts.repositories.MaltReadRepository
+import domain.malts.model.{MaltType, MaltStatus}
+import domain.common.PagedResult
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
- * Handler pour la liste des malts (API publique)
+ * Handler pour la liste publique des malts (version simplifiée)
  */
 @Singleton
 class MaltListQueryHandler @Inject()(
-                                      maltReadRepo: MaltReadRepository
-                                    )(implicit ec: ExecutionContext) {
+  maltReadRepo: MaltReadRepository
+)(implicit ec: ExecutionContext) {
 
   def handle(query: MaltListQuery): Future[Either[String, PagedResult[MaltReadModel]]] = {
     query.validate() match {
@@ -22,30 +24,17 @@ class MaltListQueryHandler @Inject()(
   }
 
   private def executeQuery(query: MaltListQuery): Future[Either[String, PagedResult[MaltReadModel]]] = {
-
-    // Construction des filtres
-    val maltTypeFilter = query.maltType.flatMap(MaltType.fromName)
-    val statusFilter = if (query.activeOnly) Some(MaltStatus.ACTIVE) else None
-
-    maltReadRepo.findByFilters(
-      maltType = maltTypeFilter,
-      minEBC = query.minEBC,
-      maxEBC = query.maxEBC,
-      originCode = query.originCode,
-      status = statusFilter,
-      page = query.page,
-      pageSize = query.pageSize
-    ).map { pagedResult =>
-      val readModels = pagedResult.items.map(MaltReadModel.fromAggregate)
+    maltReadRepo.findAll(query.page, query.pageSize, query.activeOnly).map { malts =>
+      val readModels = malts.map(MaltReadModel.fromAggregate)
       Right(PagedResult(
         items = readModels,
-        currentPage = pagedResult.currentPage,
-        pageSize = pagedResult.pageSize,
-        totalCount = pagedResult.totalCount,
-        hasNext = pagedResult.hasNext
+        currentPage = query.page,
+        pageSize = query.pageSize,
+        totalCount = readModels.length,
+        hasNext = false
       ))
     }.recover {
-      case ex: Exception => Left(s"Erreur lors de la récupération: ${ex.getMessage}")
+      case ex: Exception => Left(s"Erreur lors de la recherche: ${ex.getMessage}")
     }
   }
 }

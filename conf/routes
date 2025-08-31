@@ -48,3 +48,26 @@ GET     /api/admin/malts/needs-review           controllers.admin.AdminMaltsCont
 PATCH   /api/admin/malts/:id/credibility        controllers.admin.AdminMaltsController.adjustCredibility(id: String)
 POST    /api/admin/malts/batch-import           controllers.admin.AdminMaltsController.batchImport()
 
+
+# =============================================================================
+# ROUTES MALTS CORRIGÉES
+# =============================================================================
+
+# API v1 Malts (publique)
+GET     /api/v1/malts                           controllers.api.v1.malts.MaltsController.list(page: Int ?= 0, pageSize: Int ?= 20, maltType: Option[String] ?= None, minEBC: Option[Double] ?= None, maxEBC: Option[Double] ?= None, originCode: Option[String] ?= None, activeOnly: Boolean ?= true)
+GET     /api/v1/malts/:id                       controllers.api.v1.malts.MaltsController.detail(id: String, includeSubstitutes: Boolean ?= false, includeBeerStyles: Boolean ?= false)
+POST    /api/v1/malts/search                    controllers.api.v1.malts.MaltsController.search()
+GET     /api/v1/malts/types                     controllers.api.v1.malts.MaltsController.types()
+GET     /api/v1/malts/colors                    controllers.api.v1.malts.MaltsController.colors()
+
+# API Admin Malts (sécurisée)
+GET     /api/admin/malts                        controllers.admin.AdminMaltsController.list(page: Int ?= 0, pageSize: Int ?= 20, maltType: Option[String] ?= None, status: Option[String] ?= None, source: Option[String] ?= None, minCredibility: Option[Int] ?= None, needsReview: Boolean ?= false, searchTerm: Option[String] ?= None, sortBy: String ?= "name", sortOrder: String ?= "asc")
+POST    /api/admin/malts                        controllers.admin.AdminMaltsController.create()
+GET     /api/admin/malts/:id                    controllers.admin.AdminMaltsController.detail(id: String, includeAuditLog: Boolean ?= false, includeSubstitutes: Boolean ?= true, includeBeerStyles: Boolean ?= true, includeStatistics: Boolean ?= false)
+PUT     /api/admin/malts/:id                    controllers.admin.AdminMaltsController.update(id: String)
+DELETE  /api/admin/malts/:id                    controllers.admin.AdminMaltsController.delete(id: String)
+GET     /api/admin/malts/statistics             controllers.admin.AdminMaltsController.statistics()
+GET     /api/admin/malts/needs-review           controllers.admin.AdminMaltsController.needsReview(page: Int ?= 0, pageSize: Int ?= 20, maxCredibility: Int ?= 70)
+PATCH   /api/admin/malts/:id/credibility        controllers.admin.AdminMaltsController.adjustCredibility(id: String)
+POST    /api/admin/malts/batch-import           controllers.admin.AdminMaltsController.batchImport()
+

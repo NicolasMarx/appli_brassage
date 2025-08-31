@@ -1,56 +1,37 @@
+package domain.malts.model
+
+import play.api.libs.json._
+
 sealed trait MaltSource {
   def name: String
-  def description: String
-  def defaultCredibility: Int  // Score crédibilité par défaut
+  def defaultCredibility: Double
 }
 
 object MaltSource {
-  case object MANUAL extends MaltSource {
+  case object Manual extends MaltSource { 
     val name = "MANUAL"
-    val description = "Saisie manuelle par admin"
-    val defaultCredibility = 95
+    val defaultCredibility = 1.0
   }
-
-  case object AI_DISCOVERED extends MaltSource {
-    val name = "AI_DISCOVERED"
-    val description = "Découvert automatiquement par IA"
-    val defaultCredibility = 70
+  case object AI_Discovery extends MaltSource { 
+    val name = "AI_DISCOVERY"
+    val defaultCredibility = 0.7
   }
-
-  case object IMPORT extends MaltSource {
+  case object Import extends MaltSource { 
     val name = "IMPORT"
-    val description = "Importé depuis source externe"
-    val defaultCredibility = 85
+    val defaultCredibility = 0.8
   }
 
-  case object MANUFACTURER extends MaltSource {
-    val name = "MANUFACTURER"
-    val description = "Données officielles fabricant"
-    val defaultCredibility = 98
-  }
-
-  case object COMMUNITY extends MaltSource {
-    val name = "COMMUNITY"
-    val description = "Contribution communauté utilisateurs"
-    val defaultCredibility = 75
-  }
-
-  val all: Set[MaltSource] = Set(MANUAL, AI_DISCOVERED, IMPORT, MANUFACTURER, COMMUNITY)
+  val all: List[MaltSource] = List(Manual, AI_Discovery, Import)
 
   def fromName(name: String): Option[MaltSource] = {
-    all.find(_.name == name.toUpperCase)
+    all.find(_.name.equalsIgnoreCase(name.trim))
   }
 
-  implicit val maltSourceFormat: Format[MaltSource] = new Format[MaltSource] {
-    def reads(json: JsValue): JsResult[MaltSource] = {
-      json.validate[String].flatMap { name =>
-        fromName(name) match {
-          case Some(source) => JsSuccess(source)
-          case None => JsError(s"Source malt invalide: $name")
-        }
-      }
-    }
-
-    def writes(source: MaltSource): JsValue = JsString(source.name)
-  }
+  implicit val format: Format[MaltSource] = Format(
+    Reads(js => js.validate[String].map(fromName).flatMap {
+      case Some(source) => JsSuccess(source)
+      case None => JsError("Source de malt invalide")
+    }),
+    Writes(source => JsString(source.name))
+  )
 }

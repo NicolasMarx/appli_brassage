@@ -6,20 +6,23 @@ import domain.common.DomainError
 
 /**
  * Commande de création d'un nouveau malt
- * Pattern CQRS propre (sans handler mélangé)
+ * Suit le pattern CQRS avec validation côté domaine
  */
 case class CreateMaltCommand(
-  name: String,
-  maltType: String,
-  ebcColor: Double,
-  extractionRate: Double,
-  diastaticPower: Double,
-  originCode: String,
-  description: Option[String] = None,
-  flavorProfiles: List[String] = List.empty,
-  source: String = "MANUAL"
-) {
+                              name: String,
+                              maltType: String,
+                              ebcColor: Double,
+                              extractionRate: Double,
+                              diastaticPower: Double,
+                              originCode: String,
+                              description: Option[String] = None,
+                              flavorProfiles: List[String] = List.empty,
+                              source: String = "MANUAL"
+                            ) {
 
+  /**
+   * Validation basique avant envoi au domaine
+   */
   def validate(): Either[DomainError, CreateMaltCommand] = {
     if (name.trim.isEmpty) {
       Left(DomainError.validation("Le nom du malt ne peut pas être vide"))

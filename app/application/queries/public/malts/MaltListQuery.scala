@@ -4,14 +4,14 @@ package application.queries.public.malts
  * Query pour récupérer la liste paginée des malts (API publique)
  */
 case class MaltListQuery(
-                          page: Int = 0,
-                          pageSize: Int = 20,
-                          maltType: Option[String] = None,
-                          minEBC: Option[Double] = None,
-                          maxEBC: Option[Double] = None,
-                          originCode: Option[String] = None,
-                          activeOnly: Boolean = true
-                        ) {
+  page: Int = 0,
+  pageSize: Int = 20,
+  maltType: Option[String] = None,
+  minEBC: Option[Double] = None,
+  maxEBC: Option[Double] = None,
+  originCode: Option[String] = None,
+  activeOnly: Boolean = true
+) {
 
   def validate(): Either[String, MaltListQuery] = {
     if (page < 0) {

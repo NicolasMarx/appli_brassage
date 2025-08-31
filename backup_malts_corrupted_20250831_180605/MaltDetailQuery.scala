@@ -2,13 +2,12 @@ package application.queries.public.malts
 
 /**
  * Query pour récupérer le détail d'un malt (API publique)
- * Pattern CQRS propre
  */
 case class MaltDetailQuery(
-  id: String,
-  includeSubstitutes: Boolean = false,
-  includeBeerStyles: Boolean = false
-) {
+                            id: String,
+                            includeSubstitutes: Boolean = false,
+                            includeBeerStyles: Boolean = false
+                          ) {
 
   def validate(): Either[String, MaltDetailQuery] = {
     if (id.trim.isEmpty) {
