@@ -70,7 +70,6 @@ case class MaltAggregate(
 }
 
 object MaltAggregate {
-  val MaxFlavorProfiles = 10
   
   // Factory method pour création sécurisée
   def create(

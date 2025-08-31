@@ -5,8 +5,6 @@ import domain.hops.repositories.{HopReadRepository, HopWriteRepository}
 import infrastructure.persistence.slick.repositories.hops.{SlickHopReadRepository, SlickHopWriteRepository}
 
 // Import repositories malts
-import domain.malts.repositories.{MaltReadRepository, MaltWriteRepository}  
-import infrastructure.persistence.slick.repositories.malts.{SlickMaltReadRepository, SlickMaltWriteRepository}
 
 /**
  * Bindings Guice - Connecte les interfaces du domaine aux implémentations Slick

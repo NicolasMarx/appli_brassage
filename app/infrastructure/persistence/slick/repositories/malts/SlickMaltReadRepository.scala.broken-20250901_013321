@@ -154,13 +154,13 @@ class SlickMaltReadRepository @Inject()(
   }
 
   // ===============================
-  // IMPLÉMENTATION DES MÉTHODES HÉRITÉES
+  // IMPLÉMENTATION DES MÉTHODES
   // ===============================
 
   override def findById(id: MaltId): Future[Option[MaltAggregate]] = {
     println(s"🔍 Recherche malt par ID: ${id}")
     
-    db.run(malts.filter(_.id === id.asUUID).result.headOption).map { rowOpt =>
+    db.run(malts.filter(_.id === id.value).result.headOption).map { rowOpt =>
       val result = rowOpt.map(rowToAggregate)
       println(s"   Résultat: ${result.map(_.name.value).getOrElse("Non trouvé")}")
       result
@@ -214,7 +214,7 @@ class SlickMaltReadRepository @Inject()(
     }
   }
 
-  override def findByType(maltType: MaltType): Future[List[MaltAggregate]] = {
+  def findByType(maltType: MaltType): Future[List[MaltAggregate]] = {
     println(s"🔍 Recherche malts par type: ${maltType.name}")
     
     db.run(malts.filter(_.maltType === maltType.name).result).map { rows =>
@@ -228,7 +228,7 @@ class SlickMaltReadRepository @Inject()(
     }
   }
 
-  override def findActive(): Future[List[MaltAggregate]] = {
+  def findActive(): Future[List[MaltAggregate]] = {
     findAll(0, 1000, activeOnly = true)
   }
 
@@ -258,6 +258,7 @@ class SlickMaltReadRepository @Inject()(
         List.empty[MaltAggregate]
     }
   }
+}
 
   // ===============================
   // NOUVELLES MÉTHODES REQUISES

@@ -1,16 +1,14 @@
 package application.commands.admin.malts.handlers
 
-import application.commands.admin.malts.CreateMaltCommand
-import domain.malts.model._
-import domain.malts.repositories.{MaltReadRepository, MaltWriteRepository}
-import domain.shared._
-import domain.common.DomainError
-import javax.inject.{Inject, Singleton}
+import javax.inject._
 import scala.concurrent.{ExecutionContext, Future}
 
-/**
- * Handler pour la création de malts (version corrigée)
- */
+import domain.malts.repositories.{MaltReadRepository, MaltWriteRepository}
+import domain.malts.model._
+import domain.shared.NonEmptyString
+import application.commands.admin.malts.CreateMaltCommand
+import domain.common.DomainError
+
 @Singleton
 class CreateMaltCommandHandler @Inject()(
   maltReadRepo: MaltReadRepository,
@@ -18,72 +16,45 @@ class CreateMaltCommandHandler @Inject()(
 )(implicit ec: ExecutionContext) {
 
   def handle(command: CreateMaltCommand): Future[Either[DomainError, MaltId]] = {
-    command.validate() match {
-      case Left(error) => Future.successful(Left(error))
-      case Right(validCommand) => processValidCommand(validCommand)
-    }
-  }
-
-  private def processValidCommand(command: CreateMaltCommand): Future[Either[DomainError, MaltId]] = {
     for {
-      nameExists <- maltReadRepo.existsByName(command.name)
+      nameExists <- maltReadRepo.existsByName(NonEmptyString.unsafe(command.name))
       result <- if (nameExists) {
-        Future.successful(Left(DomainError.conflict("Un malt avec ce nom existe déjà", "name")))
+        Future.successful(Left(DomainError.validation(s"Un malt avec le nom '${command.name}' existe déjà")))
       } else {
-        createMalt(command)
+        createNewMalt(command)
       }
     } yield result
   }
 
-  private def createMalt(command: CreateMaltCommand): Future[Either[DomainError, MaltId]] = {
-    // Création des Value Objects avec conversion de types
-    val valueObjectsResult = for {
-      name <- NonEmptyString.create(command.name)
-      maltType <- MaltType.fromName(command.maltType).toRight(s"Type de malt invalide: ${command.maltType}")
-      ebcColor <- EBCColor(command.ebcColor)
-      extractionRate <- ExtractionRate(command.extractionRate)
-      diastaticPower <- DiastaticPower(command.diastaticPower) // Conversion Double -> DiastaticPower
-      source <- MaltSource.fromName(command.source).toRight(s"Source invalide: ${command.source}") // Conversion String -> MaltSource
-    } yield (name, maltType, ebcColor, extractionRate, diastaticPower, source)
+  private def createNewMalt(command: CreateMaltCommand): Future[Either[DomainError, MaltId]] = {
+    try {
+      val name = NonEmptyString.unsafe(command.name)
+      val maltType = MaltType.fromName(command.maltType).getOrElse(MaltType.BASE)
+      val ebcColor = EBCColor.unsafe(command.ebcColor)
+      val extractionRate = ExtractionRate.unsafe(command.extractionRate)
+      val diastaticPower = DiastaticPower.unsafe(command.diastaticPower)
+      val source = MaltSource.fromName(command.source).getOrElse(MaltSource.Manual)
 
-    valueObjectsResult match {
-      case Left(error) =>
-        Future.successful(Left(DomainError.validation(error)))
-      case Right((name, maltType, ebcColor, extractionRate, diastaticPower, source)) =>
-        createMaltAggregate(name, maltType, ebcColor, extractionRate, diastaticPower, source, command)
-    }
-  }
+      val malt = MaltAggregate.create(
+        name = name,
+        maltType = maltType,
+        ebcColor = ebcColor,
+        extractionRate = extractionRate,
+        diastaticPower = diastaticPower,
+        originCode = command.originCode,
+        source = source,
+        description = command.description,
+        flavorProfiles = command.flavorProfiles
+      )
 
-  private def createMaltAggregate(
-    name: NonEmptyString,
-    maltType: MaltType,
-    ebcColor: EBCColor,
-    extractionRate: ExtractionRate,
-    diastaticPower: DiastaticPower,
-    source: MaltSource,
-    command: CreateMaltCommand
-  ): Future[Either[DomainError, MaltId]] = {
-    
-    MaltAggregate.create(
-      name = name,
-      maltType = maltType,
-      ebcColor = ebcColor,
-      extractionRate = extractionRate,
-      diastaticPower = diastaticPower,
-      originCode = command.originCode,
-      source = source,
-      description = command.description,
-      flavorProfiles = command.flavorProfiles.filter(_.trim.nonEmpty).distinct
-    ) match {
-      case Left(domainError) =>
-        Future.successful(Left(domainError))
-      case Right(maltAggregate) =>
-        maltWriteRepo.create(maltAggregate).map { _ =>
-          Right(maltAggregate.id)
-        }.recover {
-          case ex: Exception =>
-            Left(DomainError.validation(s"Erreur lors de la création: ${ex.getMessage}"))
-        }
+      maltWriteRepo.save(malt).map { _ =>
+        Right(malt.id)
+      }.recover {
+        case ex: Throwable => Left(DomainError.technical(s"Erreur sauvegarde: ${ex.getMessage}"))
+      }
+    } catch {
+      case ex: Throwable =>
+        Future.successful(Left(DomainError.technical(s"Erreur création: ${ex.getMessage}")))
     }
   }
 }

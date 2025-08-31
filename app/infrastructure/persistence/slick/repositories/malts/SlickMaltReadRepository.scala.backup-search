@@ -34,7 +34,7 @@ class SlickMaltReadRepository @Inject()(
     diastaticPower: Double,
     originCode: String,
     description: Option[String],
-    flavorProfiles: Option[String],
+    flavorProfiles: Option[String], // String au lieu d'Array[String]
     source: String,
     isActive: Boolean,
     credibilityScore: Double,
@@ -68,14 +68,18 @@ class SlickMaltReadRepository @Inject()(
   val malts = TableQuery[MaltsTable]
 
   // ===============================
-  // HELPER FUNCTIONS
+  // HELPER POUR CONVERSION FLAVOR PROFILES
   // ===============================
 
+  /**
+   * Convertit une chaîne JSON ou séparée par virgules en List[String]
+   */
   private def parseFlavorProfiles(flavorProfilesString: Option[String]): List[String] = {
     flavorProfilesString match {
       case None => List.empty
       case Some(str) if str.trim.isEmpty => List.empty
       case Some(str) =>
+        // Essayer de parser comme JSON array d'abord, sinon split par virgules
         if (str.trim.startsWith("[") && str.trim.endsWith("]")) {
           try {
             play.api.libs.json.Json.parse(str).as[List[String]]
@@ -89,21 +93,86 @@ class SlickMaltReadRepository @Inject()(
     }
   }
 
+  // ===============================
+  // CONVERSION AVEC DEBUG DÉTAILLÉ
+  // ===============================
+
+  /**
+   * Version safe avec gestion d'erreurs complète et debug
+   */
   private def rowToAggregateSafe(row: MaltRow): Try[MaltAggregate] = Try {
     println(s"🔍 DEBUG: Conversion malt '${row.name}' (ID: ${row.id})")
     
+    // Validation MaltId
     val maltId = MaltId(row.id)
-    val name = NonEmptyString.create(row.name).getOrElse(NonEmptyString.unsafe(row.name))
-    val maltType = MaltType.fromName(row.maltType).getOrElse(MaltType.unsafe(row.maltType))
-    val source = MaltSource.fromName(row.source).getOrElse(MaltSource.unsafe(row.source))
-    val ebcColor = EBCColor(row.ebcColor).getOrElse(EBCColor.unsafe(row.ebcColor))
-    val extractionRate = ExtractionRate(row.extractionRate).getOrElse(ExtractionRate.unsafe(row.extractionRate))
-    val diastaticPower = DiastaticPower(row.diastaticPower).getOrElse(DiastaticPower.unsafe(row.diastaticPower))
+    println(s"   ✅ MaltId: ${maltId}")
+    
+    // Validation NonEmptyString
+    val name = NonEmptyString.create(row.name) match {
+      case Right(value) => 
+        println(s"   ✅ Name: ${value}")
+        value
+      case Left(error) => 
+        println(s"   ❌ Name validation failed: $error, utilisation unsafe")
+        NonEmptyString.unsafe(row.name)
+    }
+    
+    // Validation MaltType
+    val maltType = MaltType.fromName(row.maltType) match {
+      case Some(value) => 
+        println(s"   ✅ MaltType: ${value}")
+        value
+      case None =>
+        println(s"   ❌ MaltType validation failed for '${row.maltType}', utilisation unsafe")
+        MaltType.unsafe(row.maltType)
+    }
+    
+    // Validation MaltSource
+    val source = MaltSource.fromName(row.source) match {
+      case Some(value) => 
+        println(s"   ✅ MaltSource: ${value}")
+        value
+      case None =>
+        println(s"   ❌ MaltSource validation failed for '${row.source}', utilisation unsafe")
+        MaltSource.unsafe(row.source)
+    }
+    
+    // Validation EBCColor
+    val ebcColor = EBCColor(row.ebcColor) match {
+      case Right(value) => 
+        println(s"   ✅ EBCColor: ${value.value} (${value.colorName})")
+        value
+      case Left(error) =>
+        println(s"   ❌ EBCColor validation failed: $error, utilisation unsafe")
+        EBCColor.unsafe(row.ebcColor)
+    }
+    
+    // Validation ExtractionRate
+    val extractionRate = ExtractionRate(row.extractionRate) match {
+      case Right(value) => 
+        println(s"   ✅ ExtractionRate: ${value.asPercentage}")
+        value
+      case Left(error) =>
+        println(s"   ❌ ExtractionRate validation failed: $error, utilisation unsafe")
+        ExtractionRate.unsafe(row.extractionRate)
+    }
+    
+    // Validation DiastaticPower
+    val diastaticPower = DiastaticPower(row.diastaticPower) match {
+      case Right(value) => 
+        println(s"   ✅ DiastaticPower: ${value.value}")
+        value
+      case Left(error) =>
+        println(s"   ❌ DiastaticPower validation failed: $error, utilisation unsafe")
+        DiastaticPower.unsafe(row.diastaticPower)
+    }
+    
+    // Traitement flavor profiles avec parser intelligent
     val flavorProfiles = parseFlavorProfiles(row.flavorProfiles)
+    println(s"   ✅ FlavorProfiles: ${flavorProfiles.length} profils: ${flavorProfiles.mkString(", ")}")
     
-    println(s"   ✅ Conversion réussie: ${row.name}")
-    
-    MaltAggregate(
+    // Création de l'agrégat
+    val aggregate = MaltAggregate(
       id = maltId,
       name = name,
       maltType = maltType,
@@ -120,8 +189,14 @@ class SlickMaltReadRepository @Inject()(
       updatedAt = row.updatedAt,
       version = row.version
     )
+    
+    println(s"   🎉 Conversion réussie: ${aggregate.name.value}")
+    aggregate
   }
 
+  /**
+   * Version fallback qui ne peut pas échouer
+   */
   private def rowToAggregateUnsafe(row: MaltRow): MaltAggregate = {
     println(s"🚨 FALLBACK: Conversion unsafe pour '${row.name}'")
     
@@ -144,38 +219,47 @@ class SlickMaltReadRepository @Inject()(
     )
   }
 
+  /**
+   * Méthode principale de conversion avec fallback
+   */
   private def rowToAggregate(row: MaltRow): MaltAggregate = {
     rowToAggregateSafe(row) match {
       case Success(aggregate) => aggregate
       case Failure(ex) => 
         println(s"❌ Échec conversion safe pour '${row.name}': ${ex.getMessage}")
+        ex.printStackTrace()
         rowToAggregateUnsafe(row)
     }
   }
 
   // ===============================
-  // IMPLÉMENTATION DES MÉTHODES HÉRITÉES
+  // IMPLÉMENTATION DES MÉTHODES AVEC SIGNATURES CORRECTES
   // ===============================
 
   override def findById(id: MaltId): Future[Option[MaltAggregate]] = {
     println(s"🔍 Recherche malt par ID: ${id}")
     
-    db.run(malts.filter(_.id === id.asUUID).result.headOption).map { rowOpt =>
+    val query = malts.filter(_.id === id.value)
+    
+    db.run(query.result.headOption).map { rowOpt =>
       val result = rowOpt.map(rowToAggregate)
-      println(s"   Résultat: ${result.map(_.name.value).getOrElse("Non trouvé")}")
+      println(s"   Résultat recherche ID: ${result.map(_.name.value).getOrElse("Non trouvé")}")
       result
     }.recover {
       case ex =>
         println(s"❌ Erreur recherche par ID ${id}: ${ex.getMessage}")
+        ex.printStackTrace()
         None
     }
   }
 
+  // SIGNATURE CORRIGÉE : findAll(page: Int, pageSize: Int, activeOnly: Boolean)
   override def findAll(page: Int, pageSize: Int, activeOnly: Boolean = false): Future[List[MaltAggregate]] = {
-    println(s"🔍 Recherche tous les malts (page $page, taille $pageSize, actifs: $activeOnly)")
+    println(s"🔍 Recherche tous les malts (page $page, taille $pageSize, actifs seulement: $activeOnly)")
     
     val offset = page * pageSize
     val baseQuery = malts.sortBy(_.name)
+    
     val query = if (activeOnly) {
       baseQuery.filter(_.isActive === true).drop(offset).take(pageSize)
     } else {
@@ -184,18 +268,22 @@ class SlickMaltReadRepository @Inject()(
 
     db.run(query.result).map { rows =>
       println(s"   📋 Récupéré ${rows.length} lignes de la DB")
+      
       val aggregates = rows.map(rowToAggregate).toList
       println(s"   ✅ Converti ${aggregates.length} agrégats")
+      
       aggregates
     }.recover {
       case ex =>
         println(s"❌ Erreur findAll: ${ex.getMessage}")
+        ex.printStackTrace()
         List.empty[MaltAggregate]
     }
   }
 
+  // SIGNATURE CORRIGÉE : count(activeOnly: Boolean) returns Future[Long]
   override def count(activeOnly: Boolean = false): Future[Long] = {
-    println(s"📊 Comptage des malts (actifs: $activeOnly)")
+    println(s"📊 Comptage des malts (actifs seulement: $activeOnly)")
     
     val query = if (activeOnly) {
       malts.filter(_.isActive === true).length
@@ -205,7 +293,7 @@ class SlickMaltReadRepository @Inject()(
     
     db.run(query.result).map { count =>
       val longCount = count.toLong
-      println(s"   Total malts: $longCount")
+      println(s"   Total malts en base: $longCount")
       longCount
     }.recover {
       case ex =>
@@ -214,10 +302,13 @@ class SlickMaltReadRepository @Inject()(
     }
   }
 
-  override def findByType(maltType: MaltType): Future[List[MaltAggregate]] = {
+  // PAS D'OVERRIDE : méthode non présente dans l'interface originale
+  def findByType(maltType: MaltType): Future[List[MaltAggregate]] = {
     println(s"🔍 Recherche malts par type: ${maltType.name}")
     
-    db.run(malts.filter(_.maltType === maltType.name).result).map { rows =>
+    val query = malts.filter(_.maltType === maltType.name)
+    
+    db.run(query.result).map { rows =>
       val aggregates = rows.map(rowToAggregate).toList
       println(s"   Trouvé ${aggregates.length} malts de type ${maltType.name}")
       aggregates
@@ -228,115 +319,32 @@ class SlickMaltReadRepository @Inject()(
     }
   }
 
-  override def findActive(): Future[List[MaltAggregate]] = {
+  // PAS D'OVERRIDE : méthode non présente dans l'interface originale
+  def findActive(): Future[List[MaltAggregate]] = {
+    println(s"🔍 Recherche malts actifs")
+    
+    // Utilise la méthode findAll avec activeOnly = true
     findAll(0, 1000, activeOnly = true)
   }
 
+  // Méthode de recherche avec terme
   override def search(query: String, page: Int = 0, pageSize: Int = 20): Future[List[MaltAggregate]] = {
-    println(s"🔍 Recherche malts avec terme: '$query'")
-    
-    val searchTerm = s"%${query.toLowerCase}%"
-    val offset = page * pageSize
+    println(s"🔍 Recherche malts avec terme: '$query' (page $page, taille $pageSize)")
     
     val searchQuery = malts
-      .filter(row => 
-        row.name.toLowerCase.like(searchTerm) || 
-        row.description.toLowerCase.like(searchTerm) ||
-        row.maltType.toLowerCase.like(searchTerm)
-      )
+      .filter(row => row.name.toLowerCase.like(s"%${query.toLowerCase}%") || 
+                     row.description.toLowerCase.like(s"%${query.toLowerCase}%"))
       .sortBy(_.name)
-      .drop(offset)
+      .drop(page * pageSize)
       .take(pageSize)
 
     db.run(searchQuery.result).map { rows =>
       val aggregates = rows.map(rowToAggregate).toList
-      println(s"   Trouvé ${aggregates.length} malts pour '$query'")
+      println(s"   Trouvé ${aggregates.length} malts correspondant à '$query'")
       aggregates
     }.recover {
       case ex =>
         println(s"❌ Erreur recherche: ${ex.getMessage}")
-        List.empty[MaltAggregate]
-    }
-  }
-
-  // ===============================
-  // NOUVELLES MÉTHODES REQUISES
-  // ===============================
-
-  override def existsByName(name: NonEmptyString): Future[Boolean] = {
-    println(s"🔍 Vérification existence malt: ${name.value}")
-    
-    db.run(malts.filter(_.name.toLowerCase === name.value.toLowerCase).exists.result).map { exists =>
-      println(s"   Malt '${name.value}' existe: $exists")
-      exists
-    }.recover {
-      case ex =>
-        println(s"❌ Erreur vérification existence: ${ex.getMessage}")
-        false
-    }
-  }
-
-  override def findByFilters(
-    maltType: Option[String] = None,
-    minEBC: Option[Double] = None,
-    maxEBC: Option[Double] = None,
-    originCode: Option[String] = None,
-    status: Option[String] = None,
-    searchTerm: Option[String] = None,
-    flavorProfiles: List[String] = List.empty,
-    page: Int = 0,
-    pageSize: Int = 20
-  ): Future[List[MaltAggregate]] = {
-    println(s"🔍 Recherche avec filtres: type=$maltType, ebc=$minEBC-$maxEBC, search=$searchTerm")
-    
-    val offset = page * pageSize
-    
-    // Construction de la query avec filtres
-    var query = malts.sortBy(_.name)
-    
-    // Filtre par type
-    maltType.foreach { mt =>
-      query = query.filter(_.maltType === mt)
-    }
-    
-    // Filtre par couleur EBC
-    minEBC.foreach { min =>
-      query = query.filter(_.ebcColor >= min)
-    }
-    maxEBC.foreach { max =>
-      query = query.filter(_.ebcColor <= max)
-    }
-    
-    // Filtre par origine
-    originCode.foreach { origin =>
-      query = query.filter(_.originCode === origin)
-    }
-    
-    // Filtre par statut (active/inactive)
-    status.foreach { s =>
-      val isActive = s.toUpperCase == "ACTIVE"
-      query = query.filter(_.isActive === isActive)
-    }
-    
-    // Recherche textuelle
-    searchTerm.foreach { term =>
-      val searchPattern = s"%${term.toLowerCase}%"
-      query = query.filter(row => 
-        row.name.toLowerCase.like(searchPattern) ||
-        row.description.toLowerCase.like(searchPattern)
-      )
-    }
-    
-    // Application pagination
-    val finalQuery = query.drop(offset).take(pageSize)
-
-    db.run(finalQuery.result).map { rows =>
-      val aggregates = rows.map(rowToAggregate).toList
-      println(s"   Trouvé ${aggregates.length} malts avec filtres")
-      aggregates
-    }.recover {
-      case ex =>
-        println(s"❌ Erreur recherche avec filtres: ${ex.getMessage}")
         List.empty[MaltAggregate]
     }
   }

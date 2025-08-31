@@ -1,95 +1,85 @@
 package controllers.admin
 
+import javax.inject._
 import play.api.mvc._
 import play.api.libs.json._
-import domain.malts.repositories.MaltReadRepository
-import javax.inject.{Inject, Singleton}
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-@Singleton  
+import domain.malts.repositories.MaltReadRepository
+
+@Singleton
 class AdminMaltsController @Inject()(
   val controllerComponents: ControllerComponents,
   maltReadRepository: MaltReadRepository
 )(implicit ec: ExecutionContext) extends BaseController {
 
-  def list(
-    page: Int = 0,
-    pageSize: Int = 20,
-    maltType: Option[String] = None,
-    status: Option[String] = None,
-    source: Option[String] = None,
-    minCredibility: Option[Int] = None,
-    needsReview: Boolean = false,
-    searchTerm: Option[String] = None,
-    sortBy: String = "name",
-    sortOrder: String = "asc"
-  ): Action[AnyContent] = Action.async { implicit request =>
+  /**
+   * Liste tous les malts pour l'admin
+   */
+  def getAllMalts(page: Int, pageSize: Int, activeOnly: Boolean): Action[AnyContent] = Action.async {
+    println(s"🔍 AdminMaltsController.getAllMalts: page=$page, pageSize=$pageSize, activeOnly=$activeOnly")
     
     for {
-      malts <- maltReadRepository.findAll(page, pageSize, activeOnly = true)
-      totalCount <- maltReadRepository.count(activeOnly = true)
+      malts <- maltReadRepository.findAll(page, pageSize, activeOnly)
+      totalCount <- maltReadRepository.count(activeOnly)
     } yield {
-      val maltJson = malts.map(malt => Json.obj(
-        "id" -> malt.id.value,
-        "name" -> malt.name.value,
-        "maltType" -> malt.maltType.name,
-        "ebcColor" -> malt.ebcColor.value,
-        "extractionRate" -> malt.extractionRate.value,
-        "diastaticPower" -> malt.diastaticPower.value,
-        "originCode" -> malt.originCode,
-        "description" -> malt.description,
-        "flavorProfiles" -> malt.flavorProfiles,
-        "source" -> malt.source.name,
-        "isActive" -> malt.isActive,
-        "credibilityScore" -> malt.credibilityScore,
-        "createdAt" -> malt.createdAt.toString,
-        "updatedAt" -> malt.updatedAt.toString,
-        "version" -> malt.version
-      ))
+      println(s"   Récupéré ${malts.length} malts, total: $totalCount")
       
-      Ok(Json.obj(
-        "malts" -> maltJson,
-        "pagination" -> Json.obj(
-          "currentPage" -> page,
-          "pageSize" -> pageSize,
-          "totalCount" -> totalCount,
-          "hasNext" -> ((page + 1) * pageSize < totalCount)
+      val maltsJson = malts.map { malt =>
+        Json.obj(
+          "id" -> malt.id.toString,
+          "name" -> malt.name.value,
+          "maltType" -> malt.maltType.name,
+          "ebcColor" -> malt.ebcColor.value,
+          "extractionRate" -> malt.extractionRate.value,
+          "diastaticPower" -> malt.diastaticPower.value,
+          "originCode" -> malt.originCode,
+          "description" -> malt.description,
+          "flavorProfiles" -> malt.flavorProfiles,
+          "source" -> malt.source.name,
+          "isActive" -> malt.isActive,
+          "credibilityScore" -> malt.credibilityScore,
+          "createdAt" -> malt.createdAt.toString,
+          "updatedAt" -> malt.updatedAt.toString,
+          "version" -> malt.version
         )
+      }
+
+      Ok(Json.obj(
+        "malts" -> maltsJson,
+        "totalCount" -> totalCount,
+        "page" -> page,
+        "pageSize" -> pageSize,
+        "hasMore" -> (malts.length == pageSize)
       ))
     }
   }
 
-  // Stubs pour les autres méthodes
-  def create(): Action[AnyContent] = Action { 
-    BadRequest(Json.obj("error" -> "Création non implémentée"))
-  }
-  
-  def detail(id: String, includeAuditLog: Boolean = false, includeSubstitutes: Boolean = true, 
-             includeBeerStyles: Boolean = true, includeStatistics: Boolean = false): Action[AnyContent] = Action {
-    NotImplemented(Json.obj("error" -> "Détail non implémenté"))
-  }
-  
-  def update(id: String): Action[AnyContent] = Action { 
-    NotImplemented(Json.obj("error" -> "Mise à jour non implémentée")) 
-  }
-  
-  def delete(id: String): Action[AnyContent] = Action { 
-    NotImplemented(Json.obj("error" -> "Suppression non implémentée")) 
-  }
-  
-  def statistics(): Action[AnyContent] = Action { 
-    NotImplemented(Json.obj("error" -> "Statistiques non implémentées")) 
-  }
-  
-  def needsReview(page: Int = 0, pageSize: Int = 20, maxCredibility: Int = 70): Action[AnyContent] = Action {
-    NotImplemented(Json.obj("error" -> "Révision non implémentée"))
-  }
-  
-  def adjustCredibility(id: String): Action[AnyContent] = Action {
-    NotImplemented(Json.obj("error" -> "Ajustement crédibilité non implémenté"))
-  }
-  
-  def batchImport(): Action[AnyContent] = Action {
-    NotImplemented(Json.obj("error" -> "Import batch non implémenté"))
+  /**
+   * Route par défaut compatible avec l'ancienne API
+   */
+  def getAllMaltsDefault: Action[AnyContent] = getAllMalts(0, 20, false)
+
+  /**
+   * Recherche de malts
+   */
+  def searchMalts(query: String, page: Int, pageSize: Int): Action[AnyContent] = Action.async {
+    maltReadRepository.search(query, page, pageSize).map { malts =>
+      val maltsJson = malts.map { malt =>
+        Json.obj(
+          "id" -> malt.id.toString,
+          "name" -> malt.name.value,
+          "maltType" -> malt.maltType.name,
+          "ebcColor" -> malt.ebcColor.value,
+          "extractionRate" -> malt.extractionRate.value
+        )
+      }
+      
+      Ok(Json.obj(
+        "malts" -> maltsJson,
+        "query" -> query,
+        "totalResults" -> malts.length
+      ))
+    }
   }
 }

@@ -38,7 +38,7 @@ object MaltReadModel {
   
   def fromAggregate(malt: MaltAggregate): MaltReadModel = {
     MaltReadModel(
-      id = malt.id.toString,
+      id = malt.id.value,
       name = malt.name.value,
       maltType = malt.maltType.name,
       characteristics = MaltCharacteristics(

@@ -1,53 +1,66 @@
 package domain.malts.model
 
 import play.api.libs.json._
+import scala.util.Try
 
 /**
- * Value Object DiastaticPower - Pouvoir diastasique avec validation métier
+ * Value Object pour pouvoir diastasique des malts
+ * Version complète avec toutes les propriétés requises
  */
-final case class DiastaticPower private (value: Double) extends AnyVal {
-  def canConvertAdjuncts: Boolean = value >= 30
-  def isHighEnzyme: Boolean = value >= 100
-  def isLowEnzyme: Boolean = value <= 20
-  def enzymePowerCategory: String = DiastaticPower.getCategory(value)
+case class DiastaticPower private(value: Double) extends AnyVal {
+  
+  def canConvertAdjuncts: Boolean = value >= 35
+  
+  def enzymaticCategory: String = {
+    if (value >= 140) "Très élevé"
+    else if (value >= 100) "Élevé"
+    else if (value >= 50) "Moyen"
+    else if (value >= 20) "Faible"
+    else "Très faible"
+  }
+  
+  // ALIAS pour compatibility avec le code existant
+  def enzymePowerCategory: String = enzymaticCategory
 }
 
 object DiastaticPower {
   
   def apply(value: Double): Either[String, DiastaticPower] = {
     if (value < 0) {
-      Left(s"Le pouvoir diastasique ne peut être négatif: $value")
+      Left("Le pouvoir diastasique ne peut pas être négatif")
     } else if (value > 200) {
-      Left(s"Le pouvoir diastasique semble irréaliste: $value (max recommandé: 200)")
+      Left("Le pouvoir diastasique ne peut pas dépasser 200")
+    } else if (!value.isFinite) {
+      Left("Le pouvoir diastasique doit être un nombre valide")
     } else {
       Right(new DiastaticPower(value))
     }
   }
   
-  def getCategory(power: Double): String = power match {
-    case v if v >= 100 => "Très élevé"
-    case v if v >= 50  => "Élevé"
-    case v if v >= 30  => "Moyen"
-    case v if v >= 10  => "Faible"
-    case _             => "Négligeable"
+  def fromDouble(value: Double): Option[DiastaticPower] = apply(value).toOption
+  
+  def fromString(value: String): Option[DiastaticPower] = {
+    Try(value.toDouble).toOption.flatMap(fromDouble)
   }
   
-  // Constantes typiques
-  def BASE_MALT_HIGH: DiastaticPower = DiastaticPower(140.0).getOrElse(throw new Exception("Invalid diastatic power"))
-  def BASE_MALT_STANDARD: DiastaticPower = DiastaticPower(100.0).getOrElse(throw new Exception("Invalid diastatic power"))
-  def SELF_CONVERTING: DiastaticPower = DiastaticPower(30.0).getOrElse(throw new Exception("Invalid diastatic power"))
-  def CRYSTAL_TYPICAL: DiastaticPower = DiastaticPower(0.0).getOrElse(throw new Exception("Invalid diastatic power"))
-  def ROASTED_TYPICAL: DiastaticPower = DiastaticPower(0.0).getOrElse(throw new Exception("Invalid diastatic power"))
-  
-  implicit val format: Format[DiastaticPower] = new Format[DiastaticPower] {
-    def reads(json: JsValue): JsResult[DiastaticPower] = {
-      json.validate[Double].flatMap { value =>
-        DiastaticPower(value) match {
-          case Right(power) => JsSuccess(power)
-          case Left(error) => JsError(error)
-        }
-      }
+  // Méthode unsafe pour bypasser validation
+  def unsafe(value: Any): DiastaticPower = {
+    val doubleValue = value match {
+      case d: Double if d.isFinite => d
+      case f: Float if f.isFinite => f.toDouble
+      case n: Number => n.doubleValue()
+      case s: String => Try(s.toDouble).getOrElse(100.0)
+      case _ => 100.0
     }
-    def writes(power: DiastaticPower): JsValue = JsNumber(power.value)
+    
+    val clampedValue = math.max(0, math.min(200, doubleValue))
+    if (clampedValue != doubleValue) {
+      println(s"⚠️  DiastaticPower.unsafe: valeur '$value' corrigée en $clampedValue")
+    }
+    new DiastaticPower(clampedValue)
   }
+  
+  val toOption: Either[String, DiastaticPower] => Option[DiastaticPower] = _.toOption
+  
+  implicit val format: Format[DiastaticPower] = Json.valueFormat[DiastaticPower]
 }

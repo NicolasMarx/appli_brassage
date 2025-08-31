@@ -1,58 +1,71 @@
 package domain.malts.model
 
 import play.api.libs.json._
+import scala.util.Try
 
 /**
- * Value Object EBCColor - Couleur EBC avec validation et calcul automatique du nom
+ * Value Object pour couleur EBC des malts
+ * Version complète avec toutes les propriétés requises
  */
-final case class EBCColor private (value: Double) extends AnyVal {
-  def colorName: String = EBCColor.getColorName(value)
-  def isMaltCanBeUsed: Boolean = value >= 0 && value <= 1000
-  def isBaseMaltColor: Boolean = value >= 2 && value <= 8
-  def isCrystalMaltColor: Boolean = value >= 20 && value <= 300
-  def isRoastedMaltColor: Boolean = value >= 300
+case class EBCColor private(value: Double) extends AnyVal {
+  
+  def toSRM: Double = value * 0.508
+  
+  def colorName: String = {
+    if (value <= 3) "Très pâle"
+    else if (value <= 8) "Pâle"
+    else if (value <= 16) "Doré"
+    else if (value <= 33) "Ambré"
+    else if (value <= 66) "Brun clair"
+    else if (value <= 138) "Brun foncé"
+    else "Noir"
+  }
+  
+  // NOUVELLE PROPRIÉTÉ requise par MaltAggregate
+  def isMaltCanBeUsed: Boolean = {
+    // Logique métier : un malt peut être utilisé s'il a une couleur valide
+    value >= 0 && value <= 1000 && value.isFinite
+  }
 }
 
 object EBCColor {
   
   def apply(value: Double): Either[String, EBCColor] = {
     if (value < 0) {
-      Left(s"La couleur EBC doit être positive: $value")
+      Left("La couleur EBC ne peut pas être négative")
     } else if (value > 1000) {
-      Left(s"La couleur EBC ne peut excéder 1000: $value")
+      Left("La couleur EBC ne peut pas dépasser 1000")
+    } else if (!value.isFinite) {
+      Left("La couleur EBC doit être un nombre valide")
     } else {
       Right(new EBCColor(value))
     }
   }
   
-  def getColorName(ebc: Double): String = ebc match {
-    case v if v <= 4   => "Très pâle"
-    case v if v <= 8   => "Pâle"
-    case v if v <= 12  => "Doré"
-    case v if v <= 25  => "Ambre"
-    case v if v <= 50  => "Cuivre"
-    case v if v <= 100 => "Brun"
-    case v if v <= 300 => "Brun foncé"
-    case _             => "Noir"
+  def fromDouble(value: Double): Option[EBCColor] = apply(value).toOption
+  
+  def fromString(value: String): Option[EBCColor] = {
+    Try(value.toDouble).toOption.flatMap(fromDouble)
   }
   
-  // Constantes communes
-  def PILSNER: EBCColor = EBCColor(3.5).getOrElse(throw new Exception("Invalid EBC"))
-  def WHEAT: EBCColor = EBCColor(4.0).getOrElse(throw new Exception("Invalid EBC"))
-  def MUNICH: EBCColor = EBCColor(15.0).getOrElse(throw new Exception("Invalid EBC"))
-  def CRYSTAL_40: EBCColor = EBCColor(80.0).getOrElse(throw new Exception("Invalid EBC"))
-  def CHOCOLATE: EBCColor = EBCColor(900.0).getOrElse(throw new Exception("Invalid EBC"))
-  def ROASTED_BARLEY: EBCColor = EBCColor(1000.0).getOrElse(throw new Exception("Invalid EBC"))
-  
-  implicit val format: Format[EBCColor] = new Format[EBCColor] {
-    def reads(json: JsValue): JsResult[EBCColor] = {
-      json.validate[Double].flatMap { value =>
-        EBCColor(value) match {
-          case Right(ebc) => JsSuccess(ebc)
-          case Left(error) => JsError(error)
-        }
-      }
+  // Méthode unsafe pour bypasser validation
+  def unsafe(value: Any): EBCColor = {
+    val doubleValue = value match {
+      case d: Double if d.isFinite => d
+      case f: Float if f.isFinite => f.toDouble
+      case n: Number => n.doubleValue()
+      case s: String => Try(s.toDouble).getOrElse(3.0)
+      case _ => 3.0
     }
-    def writes(ebc: EBCColor): JsValue = JsNumber(ebc.value)
+    
+    val clampedValue = math.max(0, math.min(1000, doubleValue))
+    if (clampedValue != doubleValue) {
+      println(s"⚠️  EBCColor.unsafe: valeur '$value' corrigée en $clampedValue")
+    }
+    new EBCColor(clampedValue)
   }
+  
+  val toOption: Either[String, EBCColor] => Option[EBCColor] = _.toOption
+  
+  implicit val format: Format[EBCColor] = Json.valueFormat[EBCColor]
 }

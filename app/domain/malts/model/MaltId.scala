@@ -1,53 +1,60 @@
 package domain.malts.model
 
-import play.api.libs.json._
 import java.util.UUID
+import play.api.libs.json._
+import scala.util.{Try, Success, Failure}
 
 /**
- * Value Object MaltId - Identifiant unique pour les malts
- * Utilise UUID pour garantir l'unicité globale
+ * Value Object pour identifiant de malt
+ * Version harmonisée UUID/String avec conversions explicites
  */
-final case class MaltId private (value: String) extends AnyVal {
-  override def toString: String = value
+case class MaltId private(value: UUID) extends AnyVal {
+  
+  // Conversion explicite vers String pour compatibilité
+  override def toString: String = value.toString
+  def asString: String = value.toString
+  def asUUID: UUID = value
+  
+  // Pour les comparaisons avec String dans Slick
+  def equalsString(str: String): Boolean = value.toString == str
 }
 
 object MaltId {
   
+  def apply(uuid: UUID): MaltId = new MaltId(uuid)
+  
   def apply(value: String): Either[String, MaltId] = {
-    val trimmed = value.trim
-    
-    if (trimmed.isEmpty) {
-      Left("MaltId ne peut pas être vide")
-    } else {
-      try {
-        UUID.fromString(trimmed) // Validation UUID
-        Right(new MaltId(trimmed))
-      } catch {
-        case _: IllegalArgumentException =>
-          Left(s"MaltId doit être un UUID valide: '$trimmed'")
-      }
+    Try(UUID.fromString(value)) match {
+      case Success(uuid) => Right(new MaltId(uuid))
+      case Failure(ex) => Left(s"UUID invalide : $value (${ex.getMessage})")
     }
   }
   
-  def generate(): MaltId = new MaltId(UUID.randomUUID().toString)
+  def fromString(value: String): Option[MaltId] = apply(value).toOption
   
-  def fromString(value: String): MaltId = {
-    apply(value) match {
-      case Right(maltId) => maltId
-      case Left(error) => throw new IllegalArgumentException(error)
+  // Méthode unsafe pour bypasser validation (debug uniquement)
+  def unsafe(value: String): MaltId = {
+    Try(UUID.fromString(value)) match {
+      case Success(uuid) => new MaltId(uuid)
+      case Failure(_) => 
+        println(s"⚠️  MaltId.unsafe: UUID invalide '$value', génération d'un nouvel UUID")
+        new MaltId(UUID.randomUUID())
     }
   }
   
-  implicit val maltIdFormat: Format[MaltId] = new Format[MaltId] {
-    def reads(json: JsValue): JsResult[MaltId] = {
-      json.validate[String].flatMap { str =>
-        MaltId(str) match {
-          case Right(maltId) => JsSuccess(maltId)
-          case Left(error) => JsError(error)
+  def generate(): MaltId = new MaltId(UUID.randomUUID())
+  
+  def toOption: Either[String, MaltId] => Option[MaltId] = _.toOption
+  
+  implicit val format: Format[MaltId] = Format(
+    Reads { js => 
+      js.validate[String].flatMap { str =>
+        fromString(str) match {
+          case Some(maltId) => JsSuccess(maltId)
+          case None => JsError("UUID invalide")
         }
       }
-    }
-    
-    def writes(maltId: MaltId): JsValue = JsString(maltId.value)
-  }
+    },
+    Writes(maltId => JsString(maltId.toString))
+  )
 }

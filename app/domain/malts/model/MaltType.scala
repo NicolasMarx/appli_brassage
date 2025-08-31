@@ -2,53 +2,56 @@ package domain.malts.model
 
 import play.api.libs.json._
 
-sealed trait MaltType {
-  def name: String
-  def description: String
-}
+/**
+ * Énumération des types de malts
+ * Version corrigée avec matching case-insensitive
+ */
+sealed abstract class MaltType(val name: String, val category: String)
 
 object MaltType {
   
-  case object BASE extends MaltType {
-    val name = "BASE"
-    val description = "Malt de base avec pouvoir enzymatique élevé"
-  }
+  case object BASE extends MaltType("BASE", "Base")
+  case object SPECIALTY extends MaltType("SPECIALTY", "Spécialité")  
+  case object CRYSTAL extends MaltType("CRYSTAL", "Crystal/Caramel")
+  case object ROASTED extends MaltType("ROASTED", "Torréfié")
+  case object WHEAT extends MaltType("WHEAT", "Blé")
+  case object RYE extends MaltType("RYE", "Seigle")
+  case object OATS extends MaltType("OATS", "Avoine")
   
-  case object SPECIALTY extends MaltType {
-    val name = "SPECIALTY"  
-    val description = "Malt spécial pour saveur et couleur"
-  }
-  
-  case object CARAMEL extends MaltType {
-    val name = "CARAMEL"
-    val description = "Malt caramel/crystal pour douceur"
-  }
-  
-  case object CRYSTAL extends MaltType {
-    val name = "CRYSTAL"
-    val description = "Malt crystal pour douceur et couleur"
-  }
-  
-  case object ROASTED extends MaltType {
-    val name = "ROASTED"
-    val description = "Malt torréfié pour bières sombres"
-  }
-  
-  case object OTHER extends MaltType {
-    val name = "OTHER"
-    val description = "Autres types de malts"
-  }
-  
-  val all: List[MaltType] = List(BASE, SPECIALTY, CARAMEL, CRYSTAL, ROASTED, OTHER)
+  val all: List[MaltType] = List(BASE, SPECIALTY, CRYSTAL, ROASTED, WHEAT, RYE, OATS)
   
   def fromName(name: String): Option[MaltType] = {
-    all.find(_.name.equalsIgnoreCase(name.trim))
+    if (name == null) {
+      println(s"⚠️  MaltType.fromName: nom null")
+      return None
+    }
+    
+    val cleanName = name.trim.toUpperCase
+    println(s"🔍 MaltType.fromName: recherche '$name' -> '$cleanName'")
+    
+    val result = all.find(_.name.toUpperCase == cleanName)
+    if (result.isEmpty) {
+      println(s"❌ MaltType.fromName: type non trouvé '$cleanName', types valides: ${all.map(_.name).mkString(", ")}")
+    } else {
+      println(s"✅ MaltType.fromName: trouvé $result")
+    }
+    result
+  }
+  
+  // Méthode unsafe pour bypasser validation (debug uniquement)
+  def unsafe(name: String): MaltType = {
+    fromName(name).getOrElse {
+      println(s"⚠️  MaltType.unsafe: type invalide '$name', utilisation de BASE par défaut")
+      BASE
+    }
   }
   
   implicit val format: Format[MaltType] = Format(
-    Reads(js => js.validate[String].map(fromName).flatMap {
-      case Some(maltType) => JsSuccess(maltType)
-      case None => JsError("Type de malt invalide")
+    Reads(js => js.validate[String].flatMap { name =>
+      fromName(name) match {
+        case Some(maltType) => JsSuccess(maltType)
+        case None => JsError(s"Type de malt invalide: $name")
+      }
     }),
     Writes(maltType => JsString(maltType.name))
   )

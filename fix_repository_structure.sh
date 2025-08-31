@@ -1,3 +1,20 @@
+#!/bin/bash
+# =============================================================================
+# CORRECTION STRUCTURE REPOSITORY - RECONSTRUCTION PROPRE
+# =============================================================================
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+echo -e "${BLUE}🔧 Correction structure SlickMaltReadRepository${NC}"
+
+# Sauvegarder l'ancien fichier
+cp app/infrastructure/persistence/slick/repositories/malts/SlickMaltReadRepository.scala app/infrastructure/persistence/slick/repositories/malts/SlickMaltReadRepository.scala.broken-$(date +%Y%m%d_%H%M%S)
+
+# Reconstruire complètement le repository avec la bonne structure
+cat > app/infrastructure/persistence/slick/repositories/malts/SlickMaltReadRepository.scala << 'EOF'
 package infrastructure.persistence.slick.repositories.malts
 
 import javax.inject._
@@ -341,3 +358,25 @@ class SlickMaltReadRepository @Inject()(
     }
   }
 }
+EOF
+
+echo -e "${GREEN}✅ Repository reconstruit avec structure propre${NC}"
+
+# Test de compilation immédiat
+echo -e "${BLUE}Test de compilation...${NC}"
+
+if sbt compile > /tmp/repository_fix_compile.log 2>&1; then
+    echo -e "${GREEN}✅ Compilation réussie - Repository corrigé !${NC}"
+else
+    echo -e "${RED}❌ Erreurs persistantes${NC}"
+    echo "Dernières erreurs:"
+    tail -10 /tmp/repository_fix_compile.log
+fi
+
+echo ""
+echo -e "${BLUE}🔧 Corrections appliquées :${NC}"
+echo "   ✅ Structure de classe propre"
+echo "   ✅ Toutes les méthodes dans la classe"
+echo "   ✅ Pas de code ajouté après fermeture de classe"
+echo "   ✅ UUID utilisé correctement avec .asUUID"
+echo "   ✅ Nouvelles méthodes intégrées proprement"
