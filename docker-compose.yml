@@ -1,14 +1,76 @@
+version: '3.8'
+
 services:
-  db:
-    image: postgres:16
-    restart: unless-stopped
+  # =============================================================================
+  # POSTGRESQL (nom: postgres pour compatibilité avec les scripts)
+  # =============================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: my-brew-app-v2-db-1
     environment:
       POSTGRES_DB: appli_brassage
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: --encoding=UTF-8
     ports:
       - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - brewing-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appli_brassage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # REDIS POUR CACHE ET SESSIONS
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: my-brew-app-v2-redis-1
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - brewing-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # =============================================================================
+  # PGADMIN POUR ADMINISTRATION BDD (OPTIONNEL)
+  # =============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: my-brew-app-v2-pgadmin-1
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@brewery.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    networks:
+      - brewing-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+# =============================================================================
+# VOLUMES ET RÉSEAUX
+# =============================================================================
 volumes:
-  db_data:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  brewing-network:
+    driver: bridge

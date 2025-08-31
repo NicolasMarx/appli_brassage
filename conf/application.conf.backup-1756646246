@@ -148,13 +148,3 @@ play.evolutions.db.default {
   autoApplyDowns = false
 }
 play.evolutions.enabled = false
-
-# =============================================================================
-# DÉSACTIVATION ÉVOLUTIONS PLAY (pour tests manuels BDD)
-# =============================================================================
-play.evolutions.enabled = false
-play.evolutions.autoApply = false
-play.evolutions.autoApplyDowns = false
-play.evolutions.db.default.enabled = false
-play.evolutions.db.default.autoApply = false
-

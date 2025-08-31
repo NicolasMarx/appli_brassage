@@ -102,63 +102,85 @@ class SlickHopReadRepository @Inject()(
   val hopAromaProfiles = TableQuery[HopAromaProfilesTable]
 
   // ===============================
-  // MAPPING VERS LE DOMAINE
+  // RÉCUPÉRATION DES ARÔMES (NOUVELLE MÉTHODE)
   // ===============================
 
-  private def mapRowToAggregate(row: HopRow): HopAggregate = {
-    try {
-      val hopId = HopId(row.id)
-      val hopName = NonEmptyString(row.name)
-      val alphaAcid = AlphaAcidPercentage(row.alphaAcid)
+  /**
+   * Récupère la liste des noms d'arômes pour un houblon donné
+   */
+  private def getAromaProfilesForHop(hopId: String): Future[List[String]] = {
+    val query = (for {
+      hap <- hopAromaProfiles if hap.hopId === hopId
+      ap <- aromaProfiles if ap.id === hap.aromaId
+    } yield ap.name).result
 
-      // Traitement optionnel de betaAcid
-      val betaAcid = row.betaAcid.map(ba => AlphaAcidPercentage(ba))
+    db.run(query).map(_.toList)
+  }
 
-      // Création de HopOrigin
-      val origin = HopOrigin.fromCode(row.originCode).getOrElse(
-        HopOrigin(row.originCode, row.originCode, "Unknown")
-      )
+  // ===============================
+  // MAPPING VERS LE DOMAINE (CORRIGÉ)
+  // ===============================
 
-      // Mapping des énumérations
-      val usage = HopUsage.fromString(row.usage)
-      val status = HopStatus.fromString(row.status)
-      val source = HopSource.fromString(row.source)
+  /**
+   * Convertit une HopRow vers un HopAggregate AVEC ses arômes
+   */
+  private def mapRowToAggregateWithAromas(row: HopRow): Future[HopAggregate] = {
+    getAromaProfilesForHop(row.id).map { aromaNames =>
+      try {
+        val hopId = HopId(row.id)
+        val hopName = NonEmptyString(row.name)
+        val alphaAcid = AlphaAcidPercentage(row.alphaAcid)
 
-      val description = row.description.map(d => NonEmptyString(d))
+        // Traitement optionnel de betaAcid
+        val betaAcid = row.betaAcid.map(ba => AlphaAcidPercentage(ba))
 
-      HopAggregate(
-        id = hopId,
-        name = hopName,
-        alphaAcid = alphaAcid,
-        betaAcid = betaAcid,
-        origin = origin,
-        usage = usage,
-        description = description,
-        aromaProfile = List.empty,
-        status = status,
-        source = source,
-        credibilityScore = row.credibilityScore,
-        createdAt = row.createdAt,
-        updatedAt = row.updatedAt,
-        version = row.version.toInt
-      )
-    } catch {
-      case ex: Exception =>
-        println(s"ERREUR MAPPING houblon ${row.id}: ${ex.getMessage}")
-        ex.printStackTrace()
-        throw ex
+        // Création de HopOrigin
+        val origin = HopOrigin.fromCode(row.originCode).getOrElse(
+          HopOrigin(row.originCode, row.originCode, "Unknown")
+        )
+
+        // Mapping des énumérations
+        val usage = HopUsage.fromString(row.usage)
+        val status = HopStatus.fromString(row.status)
+        val source = HopSource.fromString(row.source)
+
+        val description = row.description.map(d => NonEmptyString(d))
+
+        HopAggregate(
+          id = hopId,
+          name = hopName,
+          alphaAcid = alphaAcid,
+          betaAcid = betaAcid,
+          origin = origin,
+          usage = usage,
+          description = description,
+          aromaProfile = aromaNames, // ✅ ARÔMES RÉCUPÉRÉS !
+          status = status,
+          source = source,
+          credibilityScore = row.credibilityScore,
+          createdAt = row.createdAt,
+          updatedAt = row.updatedAt,
+          version = row.version.toInt
+        )
+      } catch {
+        case ex: Exception =>
+          println(s"ERREUR MAPPING houblon ${row.id}: ${ex.getMessage}")
+          ex.printStackTrace()
+          throw ex
+      }
     }
   }
 
   // ===============================
-  // IMPLÉMENTATION DES MÉTHODES
+  // IMPLÉMENTATION DES MÉTHODES (MISES À JOUR)
   // ===============================
 
   override def byId(id: HopId): Future[Option[HopAggregate]] = {
     val query = hops.filter(_.id === id.value)
 
-    db.run(query.result.headOption).map { rowOpt =>
-      rowOpt.map(row => mapRowToAggregate(row))
+    db.run(query.result.headOption).flatMap {
+      case Some(row) => mapRowToAggregateWithAromas(row).map(Some(_))
+      case None => Future.successful(None)
     }.recover {
       case ex =>
         println(s"Erreur lors de la recherche par ID ${id.value}: ${ex.getMessage}")
@@ -170,8 +192,9 @@ class SlickHopReadRepository @Inject()(
   override def byName(name: NonEmptyString): Future[Option[HopAggregate]] = {
     val query = hops.filter(_.name === name.value)
 
-    db.run(query.result.headOption).map { rowOpt =>
-      rowOpt.map(row => mapRowToAggregate(row))
+    db.run(query.result.headOption).flatMap {
+      case Some(row) => mapRowToAggregateWithAromas(row).map(Some(_))
+      case None => Future.successful(None)
     }.recover {
       case ex =>
         println(s"Erreur lors de la recherche par nom ${name.value}: ${ex.getMessage}")
@@ -192,9 +215,11 @@ class SlickHopReadRepository @Inject()(
     (for {
       totalCount <- db.run(countQuery.result)
       hopsData <- db.run(dataQuery.result)
+      hopsWithAromas <- Future.traverse(hopsData) { row =>
+        mapRowToAggregateWithAromas(row)
+      }
     } yield {
-      val hopsList = hopsData.map(mapRowToAggregate).toList
-      (hopsList, totalCount)
+      (hopsWithAromas.toList, totalCount)
     }).recover {
       case ex =>
         println(s"Erreur lors de la récupération de tous les houblons (page=$page, size=$size): ${ex.getMessage}")
@@ -237,8 +262,10 @@ class SlickHopReadRepository @Inject()(
       query = query.filter(_.alphaAcid <= max)
     }
 
-    db.run(query.sortBy(_.name).result).map { rows =>
-      rows.map(mapRowToAggregate)
+    db.run(query.sortBy(_.name).result).flatMap { rows =>
+      Future.traverse(rows) { row =>
+        mapRowToAggregateWithAromas(row)
+      }
     }.recover {
       case ex =>
         println(s"Erreur lors de la recherche par caractéristiques: ${ex.getMessage}")
@@ -250,8 +277,10 @@ class SlickHopReadRepository @Inject()(
   override def byStatus(status: String): Future[Seq[HopAggregate]] = {
     val query = hops.filter(_.status === status)
 
-    db.run(query.sortBy(_.name).result).map { rows =>
-      rows.map(mapRowToAggregate)
+    db.run(query.sortBy(_.name).result).flatMap { rows =>
+      Future.traverse(rows) { row =>
+        mapRowToAggregateWithAromas(row)
+      }
     }.recover {
       case ex =>
         println(s"Erreur lors de la recherche par statut $status: ${ex.getMessage}")
@@ -266,8 +295,10 @@ class SlickHopReadRepository @Inject()(
       .sortBy(_.createdAt.desc)
       .take(limit)
 
-    db.run(query.result).map { rows =>
-      rows.map(mapRowToAggregate)
+    db.run(query.result).flatMap { rows =>
+      Future.traverse(rows) { row =>
+        mapRowToAggregateWithAromas(row)
+      }
     }.recover {
       case ex =>
         println(s"Erreur lors de la recherche des houblons découverts par IA: ${ex.getMessage}")
@@ -277,7 +308,7 @@ class SlickHopReadRepository @Inject()(
   }
 
   // ===============================
-  // MÉTHODES D'ALIAS POUR COMPATIBILITÉ
+  // MÉTHODES D'ALIAS POUR COMPATIBILITÉ (MISES À JOUR)
   // ===============================
 
   override def findById(id: HopId): Future[Option[HopAggregate]] = byId(id)
@@ -295,9 +326,11 @@ class SlickHopReadRepository @Inject()(
     (for {
       totalCount <- db.run(countQuery.result)
       hopsData <- db.run(dataQuery.result)
+      hopsWithAromas <- Future.traverse(hopsData) { row =>
+        mapRowToAggregateWithAromas(row)
+      }
     } yield {
-      val hopsList = hopsData.map(mapRowToAggregate).toList
-      (hopsList, totalCount)
+      (hopsWithAromas.toList, totalCount)
     }).recover {
       case ex =>
         println(s"Erreur lors de la récupération des houblons actifs (page=$page, size=$pageSize): ${ex.getMessage}")
@@ -318,7 +351,7 @@ class SlickHopReadRepository @Inject()(
   }
 
   // ===============================
-  // MÉTHODES UTILITAIRES (désormais dans le trait)
+  // MÉTHODES UTILITAIRES (MISES À JOUR)
   // ===============================
 
   override def existsByName(name: String): Future[Boolean] = {
@@ -338,8 +371,10 @@ class SlickHopReadRepository @Inject()(
       query = query.filter(_.status === "ACTIVE")
     }
 
-    db.run(query.sortBy(_.name).result).map { rows =>
-      rows.map(mapRowToAggregate).toList
+    db.run(query.sortBy(_.name).result).flatMap { rows =>
+      Future.traverse(rows) { row =>
+        mapRowToAggregateWithAromas(row)
+      }.map(_.toList)
     }.recover {
       case ex =>
         println(s"Erreur lors de la recherche par origine $originCode: ${ex.getMessage}")
@@ -355,8 +390,10 @@ class SlickHopReadRepository @Inject()(
       query = query.filter(_.status === "ACTIVE")
     }
 
-    db.run(query.sortBy(_.name).result).map { rows =>
-      rows.map(mapRowToAggregate).toList
+    db.run(query.sortBy(_.name).result).flatMap { rows =>
+      Future.traverse(rows) { row =>
+        mapRowToAggregateWithAromas(row)
+      }.map(_.toList)
     }.recover {
       case ex =>
         println(s"Erreur lors de la recherche par usage $usage: ${ex.getMessage}")
@@ -379,8 +416,10 @@ class SlickHopReadRepository @Inject()(
       } yield hop
     }
 
-    db.run(query.sortBy(_.name).result).map { rows =>
-      rows.map(mapRowToAggregate).toList
+    db.run(query.sortBy(_.name).result).flatMap { rows =>
+      Future.traverse(rows) { row =>
+        mapRowToAggregateWithAromas(row)
+      }.map(_.toList)
     }.recover {
       case ex =>
         println(s"Erreur lors de la recherche par profil aromatique $aromaId: ${ex.getMessage}")
