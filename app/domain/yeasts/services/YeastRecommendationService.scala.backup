@@ -182,11 +182,12 @@ class YeastRecommendationService @Inject()(
       case FlocculationLevel.Medium | FlocculationLevel.MediumHigh | FlocculationLevel.High => true
       case _ => false
     }
-    
-    hasSuitableFlocculation && 
-    yeast.temperature.range <= 6 && // Plage de température pas trop large
-    yeast.characteristics.isClean // Profil neutre plus facile
+
+    hasSuitableFlocculation &&
+      yeast.temperature.range <= 6 && // Plage de température pas trop large
+      yeast.characteristics.isClean // Profil neutre plus facile
   }
+
   private def calculateBeginnerScore(yeast: YeastAggregate): Double = {
     var score = 0.0
     

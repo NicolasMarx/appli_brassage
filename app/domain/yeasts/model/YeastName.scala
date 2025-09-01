@@ -1,41 +1,24 @@
 package domain.yeasts.model
 
-import domain.shared.ValueObject
+import domain.shared.NonEmptyString
+import play.api.libs.json._
 
-/**
- * Value Object pour le nom des levures
- * Validation et normalisation des noms de levures
- */
-case class YeastName(value: String) extends ValueObject {
-  require(value != null && value.trim.nonEmpty, "Le nom de la levure ne peut pas être vide")
-  require(value.trim.length >= 2, "Le nom de la levure doit contenir au moins 2 caractères")
-  require(value.trim.length <= 100, "Le nom de la levure ne peut pas dépasser 100 caractères")
-  
-  // Normalisation : trim et suppression des espaces multiples
-  val normalized: String = value.trim.replaceAll("\\s+", " ")
-  
-  override def toString: String = normalized
-}
+case class YeastName private(value: String) extends AnyVal
 
 object YeastName {
-  /**
-   * Crée un YeastName avec validation
-   */
-  def fromString(name: String): Either[String, YeastName] = {
-    try {
-      Right(YeastName(name))
-    } catch {
-      case e: IllegalArgumentException => Left(e.getMessage)
+  def fromString(value: String): Either[String, YeastName] = {
+    NonEmptyString.fromString(value) match {
+      case Some(nes) => Right(YeastName(nes.value))
+      case None => Left("Yeast name cannot be empty")
     }
   }
   
-  /**
-   * Validation sans création d'objet
-   */
-  def isValid(name: String): Boolean = {
-    name != null &&
-    name.trim.nonEmpty &&
-    name.trim.length >= 2 &&
-    name.trim.length <= 100
-  }
+  def unsafe(value: String): YeastName = YeastName(value)
+  
+  implicit val format: Format[YeastName] = Format(
+    Reads(json => json.validate[String].flatMap(s => 
+      fromString(s).fold(JsError(_), JsSuccess(_))
+    )),
+    Writes(yn => JsString(yn.value))
+  )
 }

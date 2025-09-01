@@ -83,7 +83,7 @@ object YeastRow {
       attenuationMax = yeast.attenuation.max,
       temperatureMin = yeast.temperature.min,
       temperatureMax = yeast.temperature.max,
-      alcoholTolerance = yeast.alcoholTolerance.percentage,
+      alcoholTolerance = yeast.alcoholTolerance.value,
       flocculation = yeast.flocculation.name,
       characteristics = Json.toJson(yeast.characteristics).toString(),
       status = yeast.status.name,

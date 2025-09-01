@@ -1,36 +1,31 @@
 package application.yeasts.dtos
+import application.yeasts.dtos.YeastResponseDTOs._
+import application.yeasts.dtos.YeastRequestDTOs._
 
-import domain.yeasts.services.YeastRecommendationService
-import javax.inject.{Inject, Singleton}
+import javax.inject._
 import scala.concurrent.{ExecutionContext, Future}
 import java.util.UUID
+import application.yeasts.handlers.{YeastCommandHandlers, YeastQueryHandlers}
+import application.commands.admin.yeasts._
+import application.queries.public.yeasts._
 
-/**
- * Service applicatif principal pour les levures
- * Orchestration des handlers et conversion DTOs
- */
+// Importer les DTOs
+
 @Singleton
-class YeastApplicationService @Inject()(
+class YeastDTOs @Inject()(
   commandHandlers: YeastCommandHandlers,
-  queryHandlers: YeastQueryHandlers,
-  yeastRecommendationService: YeastRecommendationService
+  queryHandlers: YeastQueryHandlers
 )(implicit ec: ExecutionContext) {
 
-  // ==========================================================================
-  // OPÉRATIONS DE LECTURE (QUERIES)
-  // ==========================================================================
+  // =========================================================================
+  // QUERIES (READ OPERATIONS)
+  // =========================================================================
 
-  /**
-   * Récupère une levure par ID
-   */
   def getYeastById(yeastId: UUID): Future[Option[YeastDetailResponseDTO]] = {
     val query = GetYeastByIdQuery(yeastId)
-    queryHandlers.handle(query).map(_.map(YeastDTOs.toDetailResponse))
+    queryHandlers.handleGetById(query)
   }
 
-  /**
-   * Recherche de levures avec filtres et pagination
-   */
   def findYeasts(searchRequest: YeastSearchRequestDTO): Future[Either[List[String], YeastPageResponseDTO]] = {
     val query = FindYeastsQuery(
       name = searchRequest.name,
@@ -48,117 +43,60 @@ class YeastApplicationService @Inject()(
       page = searchRequest.page,
       size = searchRequest.size
     )
-    
-    queryHandlers.handle(query).map(_.map(YeastDTOs.toPageResponse))
+    queryHandlers.handleFindYeasts(query)
   }
 
-  /**
-   * Recherche par type de levure
-   */
   def findYeastsByType(yeastType: String, limit: Option[Int] = None): Future[Either[String, List[YeastSummaryDTO]]] = {
     val query = FindYeastsByTypeQuery(yeastType, limit)
-    queryHandlers.handle(query).map(_.map(_.map(YeastDTOs.toSummary)))
+    queryHandlers.handleFindByType(query)
   }
 
-  /**
-   * Recherche par laboratoire
-   */
   def findYeastsByLaboratory(laboratory: String, limit: Option[Int] = None): Future[Either[String, List[YeastSummaryDTO]]] = {
     val query = FindYeastsByLaboratoryQuery(laboratory, limit)
-    queryHandlers.handle(query).map(_.map(_.map(YeastDTOs.toSummary)))
+    queryHandlers.handleFindByLaboratory(query)
   }
 
-  /**
-   * Recherche textuelle
-   */
   def searchYeasts(searchTerm: String, limit: Option[Int] = None): Future[Either[String, List[YeastSummaryDTO]]] = {
     val query = SearchYeastsQuery(searchTerm, limit)
-    queryHandlers.handle(query).map(_.map(_.map(YeastDTOs.toSummary)))
+    queryHandlers.handleSearch(query)
   }
 
-  /**
-   * Statistiques des levures
-   */
   def getYeastStatistics(): Future[YeastStatsDTO] = {
-    for {
-      byStatus <- queryHandlers.handle(GetYeastStatsQuery())
-      byLaboratory <- queryHandlers.handle(GetYeastStatsByLaboratoryQuery())
-      byType <- queryHandlers.handle(GetYeastStatsByTypeQuery())
-      recentlyAdded <- queryHandlers.handle(GetRecentlyAddedYeastsQuery(5)).map(_.getOrElse(List.empty))
-      mostPopular <- queryHandlers.handle(GetMostPopularYeastsQuery(5)).map(_.getOrElse(List.empty))
-    } yield {
-      YeastStatsDTO(
-        totalCount = byStatus.values.sum,
-        byStatus = byStatus.map { case (status, count) => status.name -> count },
-        byLaboratory = byLaboratory.map { case (lab, count) => lab.name -> count },
-        byType = byType.map { case (yeastType, count) => yeastType.name -> count },
-        recentlyAdded = recentlyAdded.map(YeastDTOs.toSummary),
-        mostPopular = mostPopular.map(YeastDTOs.toSummary)
-      )
-    }
+    queryHandlers.handleGetStats()
   }
 
-  /**
-   * Recommandations de levures
-   */
   def getYeastRecommendations(
     beerStyle: Option[String] = None,
     targetAbv: Option[Double] = None,
     fermentationTemp: Option[Int] = None,
-    desiredCharacteristics: List[String] = List.empty,
+    desiredCharacteristics: Option[List[String]] = None,
     limit: Int = 10
   ): Future[Either[List[String], List[YeastRecommendationDTO]]] = {
     
     val query = GetYeastRecommendationsQuery(
-      beerStyle = beerStyle,
-      targetAbv = targetAbv,
-      fermentationTemp = fermentationTemp,
-      desiredCharacteristics = desiredCharacteristics,
-      limit = limit
+      beerStyle,
+      targetAbv,
+      fermentationTemp,
+      desiredCharacteristics,
+      limit
     )
-    
-    queryHandlers.handle(query).map { result =>
-      result.map(_.map(recommended => 
-        YeastRecommendationDTO(
-          yeast = YeastDTOs.toSummary(recommended.yeast),
-          score = recommended.score,
-          reason = recommended.reason,
-          tips = recommended.tips
-        )
-      ))
-    }
+    queryHandlers.handleGetRecommendations(query)
   }
 
-  /**
-   * Alternatives à une levure
-   */
   def getYeastAlternatives(
     originalYeastId: UUID,
     reason: String = "unavailable",
     limit: Int = 5
   ): Future[Either[List[String], List[YeastRecommendationDTO]]] = {
-    
+
     val query = GetYeastAlternativesQuery(originalYeastId, reason, limit)
-    
-    queryHandlers.handle(query).map { result =>
-      result.map(_.map(recommended => 
-        YeastRecommendationDTO(
-          yeast = YeastDTOs.toSummary(recommended.yeast),
-          score = recommended.score,
-          reason = recommended.reason,
-          tips = recommended.tips
-        )
-      ))
-    }
+    queryHandlers.handleGetAlternatives(query)
   }
 
-  // ==========================================================================
-  // OPÉRATIONS D'ÉCRITURE (COMMANDS)
-  // ==========================================================================
+  // =========================================================================
+  // COMMANDS (WRITE OPERATIONS)
+  // =========================================================================
 
-  /**
-   * Crée une nouvelle levure
-   */
   def createYeast(
     request: CreateYeastRequestDTO, 
     createdBy: UUID
@@ -183,13 +121,9 @@ class YeastApplicationService @Inject()(
       notes = request.notes,
       createdBy = createdBy
     )
-    
-    commandHandlers.handle(command).map(_.map(YeastDTOs.toDetailResponse))
+    commandHandlers.handleCreateYeast(command)
   }
 
-  /**
-   * Met à jour une levure existante
-   */
   def updateYeast(
     yeastId: UUID,
     request: UpdateYeastRequestDTO,
@@ -215,13 +149,9 @@ class YeastApplicationService @Inject()(
       notes = request.notes,
       updatedBy = updatedBy
     )
-    
-    commandHandlers.handle(command).map(_.map(YeastDTOs.toDetailResponse))
+    commandHandlers.handleUpdateYeast(command)
   }
 
-  /**
-   * Change le statut d'une levure
-   */
   def changeYeastStatus(
     yeastId: UUID,
     request: ChangeStatusRequestDTO,
@@ -234,59 +164,43 @@ class YeastApplicationService @Inject()(
       reason = request.reason,
       changedBy = changedBy
     )
-    
-    commandHandlers.handle(command)
+    commandHandlers.handleChangeStatus(command)
   }
 
-  /**
-   * Active une levure
-   */
   def activateYeast(yeastId: UUID, activatedBy: UUID): Future[Either[String, YeastDetailResponseDTO]] = {
     val command = ActivateYeastCommand(yeastId, activatedBy)
-    commandHandlers.handle(command).map(_.map(YeastDTOs.toDetailResponse))
+    commandHandlers.handleActivateYeast(command)
   }
 
-  /**
-   * Désactive une levure
-   */
   def deactivateYeast(
     yeastId: UUID, 
     reason: Option[String], 
     deactivatedBy: UUID
   ): Future[Either[String, YeastDetailResponseDTO]] = {
     val command = DeactivateYeastCommand(yeastId, reason, deactivatedBy)
-    commandHandlers.handle(command).map(_.map(YeastDTOs.toDetailResponse))
+    commandHandlers.handleDeactivateYeast(command)
   }
 
-  /**
-   * Archive une levure
-   */
   def archiveYeast(
     yeastId: UUID, 
     reason: Option[String], 
     archivedBy: UUID
   ): Future[Either[String, YeastDetailResponseDTO]] = {
     val command = ArchiveYeastCommand(yeastId, reason, archivedBy)
-    commandHandlers.handle(command).map(_.map(YeastDTOs.toDetailResponse))
+    commandHandlers.handleArchiveYeast(command)
   }
 
-  /**
-   * Supprime une levure (archive)
-   */
-  def deleteYeast(yeastId: UUID, reason: String, deletedBy: UUID): Future[Either[String, Unit]] = {
+  def deleteYeast(yeastId: UUID, reason: Option[String], deletedBy: UUID): Future[Either[String, Unit]] = {
     val command = DeleteYeastCommand(yeastId, reason, deletedBy)
-    commandHandlers.handle(command)
+    commandHandlers.handleDeleteYeast(command)
   }
 
-  /**
-   * Création batch de levures
-   */
   def createYeastsBatch(
     requests: List[CreateYeastRequestDTO],
     createdBy: UUID
   ): Future[Either[List[String], List[YeastDetailResponseDTO]]] = {
     
-    val commands = requests.map(request => 
+    val commands = requests.map { request =>
       CreateYeastCommand(
         name = request.name,
         laboratory = request.laboratory,
@@ -306,91 +220,9 @@ class YeastApplicationService @Inject()(
         notes = request.notes,
         createdBy = createdBy
       )
-    )
+    }
     
     val batchCommand = CreateYeastsBatchCommand(commands)
-    commandHandlers.handle(batchCommand).map(_.map(_.map(YeastDTOs.toDetailResponse)))
-  }
-
-  // ==========================================================================
-  // OPÉRATIONS SPÉCIALISÉES
-  // ==========================================================================
-
-  /**
-   * Recommandations pour débutants
-   */
-  def getBeginnerRecommendations(limit: Int = 5): Future[List[YeastRecommendationDTO]] = {
-    yeastRecommendationService.getBeginnerFriendlyYeasts(limit).map(_.map(recommended =>
-      YeastRecommendationDTO(
-        yeast = YeastDTOs.toSummary(recommended.yeast),
-        score = recommended.score,
-        reason = recommended.reason,
-        tips = recommended.tips
-      )
-    ))
-  }
-
-  /**
-   * Recommandations saisonnières
-   */
-  def getSeasonalRecommendations(season: String, limit: Int = 8): Future[List[YeastRecommendationDTO]] = {
-    val parsedSeason = season.toLowerCase match {
-      case "spring" => Season.Spring
-      case "summer" => Season.Summer
-      case "autumn" | "fall" => Season.Autumn
-      case "winter" => Season.Winter
-      case _ => Season.Spring // Default
-    }
-    
-    yeastRecommendationService.getSeasonalRecommendations(parsedSeason, limit).map(_.map(recommended =>
-      YeastRecommendationDTO(
-        yeast = YeastDTOs.toSummary(recommended.yeast),
-        score = recommended.score,
-        reason = recommended.reason,
-        tips = recommended.tips
-      )
-    ))
-  }
-
-  /**
-   * Recommandations pour expérimentateurs
-   */
-  def getExperimentalRecommendations(limit: Int = 6): Future[List[YeastRecommendationDTO]] = {
-    yeastRecommendationService.getExperimentalYeasts(limit).map(_.map(recommended =>
-      YeastRecommendationDTO(
-        yeast = YeastDTOs.toSummary(recommended.yeast),
-        score = recommended.score,
-        reason = recommended.reason,
-        tips = recommended.tips
-      )
-    ))
-  }
-
-  /**
-   * Validation d'une recette avec levure
-   */
-  def validateRecipeWithYeast(
-    yeastId: UUID,
-    targetTemp: Int,
-    targetAbv: Double,
-    targetAttenuation: Int
-  ): Future[Either[String, FermentationCompatibilityReport]] = {
-    
-    queryHandlers.handle(GetYeastByIdQuery(yeastId)).flatMap {
-      case None => Future.successful(Left(s"Levure non trouvée: $yeastId"))
-      case Some(yeast) =>
-        // Utiliser le service domaine pour l'analyse
-        import domain.yeasts.services.YeastDomainService
-        // Note: Il faudrait injecter le service domaine ici
-        Future.successful(Right(FermentationCompatibilityReport(
-          yeast = yeast,
-          temperatureCompatible = yeast.temperature.contains(targetTemp),
-          alcoholCompatible = yeast.alcoholTolerance.canFerment(targetAbv),
-          attenuationCompatible = yeast.attenuation.contains(targetAttenuation),
-          overallScore = 0.8, // Calculé par le service domaine
-          warnings = List.empty,
-          recommendations = List.empty
-        )))
-    }
+    commandHandlers.handleBatchCreate(batchCommand)
   }
 }
