@@ -42,11 +42,13 @@ GET     /api/v1/malts/type/:maltType    interfaces.http.api.v1.malts.MaltsContro
 
 # Public API - Levures (lecture seule, pas d'auth)
 GET     /api/v1/yeasts                    interfaces.controllers.yeasts.YeastPublicController.listActiveYeasts(page: Int ?= 0, size: Int ?= 20, name: Option[String], laboratory: Option[String], yeastType: Option[String])
+
+# Public API - Endpoints spécifiques (AVANT :yeastId pour éviter les conflits)
 GET     /api/v1/yeasts/search             interfaces.controllers.yeasts.YeastPublicController.searchYeasts(q: String, limit: Int ?= 20)
+GET     /api/v1/yeasts/stats              interfaces.controllers.yeasts.YeastPublicController.getPublicStats()
+GET     /api/v1/yeasts/popular            interfaces.controllers.yeasts.YeastPublicController.getPopularYeasts(limit: Int ?= 10)
 GET     /api/v1/yeasts/type/:yeastType    interfaces.controllers.yeasts.YeastPublicController.getYeastsByType(yeastType: String, limit: Int ?= 20)
 GET     /api/v1/yeasts/laboratory/:lab    interfaces.controllers.yeasts.YeastPublicController.getYeastsByLaboratory(lab: String, limit: Int ?= 20)
-GET     /api/v1/yeasts/:yeastId           interfaces.controllers.yeasts.YeastPublicController.getYeast(yeastId: String)
-GET     /api/v1/yeasts/:yeastId/alternatives  interfaces.controllers.yeasts.YeastPublicController.getAlternatives(yeastId: String, reason: String ?= "unavailable", limit: Int ?= 5)
 
 # Public API - Recommandations levures
 GET     /api/v1/yeasts/recommendations/beginner     interfaces.controllers.yeasts.YeastPublicController.getBeginnerRecommendations(limit: Int ?= 5)
@@ -54,9 +56,9 @@ GET     /api/v1/yeasts/recommendations/seasonal     interfaces.controllers.yeast
 GET     /api/v1/yeasts/recommendations/experimental interfaces.controllers.yeasts.YeastPublicController.getExperimentalRecommendations(limit: Int ?= 6)
 GET     /api/v1/yeasts/recommendations/style/:style interfaces.controllers.yeasts.YeastPublicController.getRecommendationsForBeerStyle(style: String, targetAbv: Option[Double], fermentationTemp: Option[Int], limit: Int ?= 10)
 
-# Public API - Statistiques levures
-GET     /api/v1/yeasts/stats              interfaces.controllers.yeasts.YeastPublicController.getPublicStats()
-GET     /api/v1/yeasts/popular            interfaces.controllers.yeasts.YeastPublicController.getPopularYeasts(limit: Int ?= 10)
+# Public API - Endpoints avec UUID (APRÈS les endpoints spécifiques)
+GET     /api/v1/yeasts/:yeastId           interfaces.controllers.yeasts.YeastPublicController.getYeast(yeastId: String)
+GET     /api/v1/yeasts/:yeastId/alternatives  interfaces.controllers.yeasts.YeastPublicController.getAlternatives(yeastId: String, reason: String ?= "unavailable", limit: Int ?= 5)
 
 # Admin API - Levures (authentification requise)
 GET     /api/admin/yeasts                 interfaces.controllers.yeasts.YeastAdminController.listYeasts(page: Int ?= 0, size: Int ?= 20, name: Option[String], laboratory: Option[String], yeastType: Option[String], status: Option[String])

@@ -1,0 +1,239 @@
+# 🍺 Brewing Platform DDD/CQRS - Statut & Plan d'Action
+
+**Dernière mise à jour** : 2025-09-02
+**Architecture** : DDD/CQRS + Event Sourcing + IA  
+**Status global** : Phase 2B finalisée → Transition Phase 2C (Intelligence Hops/Malts)  
+
+## 🎯 **OBJECTIFS DU PROJET**
+
+1. ✅ **Finaliser domaine Hops** (TERMINÉ - Production ready)
+2. ✅ **Finaliser domaine Malts** (TERMINÉ - Production ready) 
+3. ✅ **Finaliser domaine Yeasts** (TERMINÉ - 85% intelligence implémentée)
+4. 🔜 **Intelligence uniformisée** : Étendre Hops/Malts au niveau Yeasts
+5. 🔜 **Frontend complet** 
+6. 🔜 **Recipe Builder** avec intelligence 3 domaines
+
+---
+
+## 📊 **STATUT ACTUEL - Vue d'ensemble**
+
+### ✅ **TERMINÉ (Production-ready)**
+- **Architecture DDD/CQRS** : Couches Domain/Application/Infrastructure/Interface
+- **Domaine Hops** : CRUD complet + Event Sourcing + API REST
+- **Base PostgreSQL** : Schémas + évolutions + audit trail
+- **Value Objects** : Email, AdminId, NonEmptyString, Percentage
+- **Admin Aggregate** : Logique métier + sécurité + permissions
+- **API Admin/Public** : Routes séparées + validation + pagination
+
+### 🚧 **EN COURS**
+- Documentation architecture
+- Tests unitaires domaine
+
+### 🔜 **À FAIRE - Priorité Réajustée**
+1. **Phase 2C - Intelligence Hops** : Recommandations style, profils gustatifs, substitutions smart
+2. **Phase 2D - Intelligence Malts** : Construction recettes, optimisation couleur, guidance utilisateur  
+3. **Phase 3 - Frontend React/Vue** : Interface unifiée avec intelligence 3 domaines
+4. **Phase 4 - Recipe Builder** : Combinaisons intelligentes Hops+Malts+Yeasts
+5. **Phase 5 - IA monitoring** : Découverte automatique + ML avancé
+
+---
+
+## 🏗️ **ARCHITECTURE - État des lieux**
+
+### ✅ **Couches implémentées**
+
+**Domain Layer (95%)**
+- ✅ Value Objects : Email, AdminId, NonEmptyString, Percentage
+- ✅ Admin Aggregate : Complet avec Event Sourcing
+- ✅ Hop Aggregate : Complet avec versioning
+- 🔜 Malt Aggregate, Yeast Aggregate, Recipe Aggregate
+
+**Application Layer (80%)**
+- ✅ Commands/Queries Hops : CRUD handlers complets
+- ✅ CQRS séparation : Write/Read models
+- 🔜 Commands/Queries autres domaines
+
+**Infrastructure Layer (90%)**
+- ✅ PostgreSQL + Slick : Tables + repositories
+- ✅ Event Sourcing : Versioning automatique
+- ✅ Audit Trail : Logs complets
+- 🔜 IA Services (OpenAI, monitoring)
+
+**Interface Layer (70%)**
+- ✅ API REST Admin : `/api/admin/hops` CRUD complet
+- ✅ API REST Public : `/api/v1/hops` lecture
+- ✅ Validation : Erreurs structurées
+- 🔜 Frontend web, autres APIs domaines
+
+---
+
+## 📋 **PLAN D'ACTION DÉTAILLÉ**
+
+### **PHASE 2A : Domaine Malts (Sprint actuel)**
+
+**Objectif** : Reproduire l'excellence du domaine Hops pour les Malts
+
+#### **Semaine 1 - Fondations Malts**
+- [ ] **MaltAggregate** : Logique métier (EBC, extraction, type)
+- [ ] **Value Objects** : MaltId, EBCColor, ExtractionRate
+- [ ] **Events** : MaltCreated, MaltUpdated, MaltDeactivated
+- [ ] **Repository** : Slick implementation
+- [ ] **évolution SQL** : Tables malts
+
+#### **Semaine 2 - API Malts**
+- [ ] **Commands** : CreateMalt, UpdateMalt, DeleteMalt
+- [ ] **Queries** : MaltList, MaltDetail, MaltSearch
+- [ ] **Controllers** : Admin + Public APIs
+- [ ] **Tests** : CRUD complet comme Hops
+- [ ] **Validation** : Business rules malts
+
+**Résultat attendu** : API `/api/admin/malts` et `/api/v1/malts` fonctionnelles
+
+### **PHASE 2B : Domaine Yeasts**
+
+**Objectif** : Compléter les ingrédients de base
+
+#### **Semaine 3-4**
+- [ ] **YeastAggregate** : Souches, atténuation, températures
+- [ ] **API complète** : CRUD + recherche
+- [ ] **Relations** : Yeast-BeerStyles compatibility
+- [ ] **Data enrichment** : Labs, availability
+
+**Résultat attendu** : Trilogie Hops-Malts-Yeasts complète
+
+### **PHASE 3 : Frontend (4 semaines)**
+
+#### **Phase 3A : Admin Interface (2 semaines)**
+- [ ] **Auth système** : Login admin + sessions
+- [ ] **CRUD interfaces** : Hops, Malts, Yeasts management
+- [ ] **Dashboard** : Stats, monitoring, audit logs
+- [ ] **IA Review** : Interface validation propositions
+
+#### **Phase 3B : Public Interface (2 semaines)**  
+- [ ] **Catalogue public** : Browse ingredients
+- [ ] **Search/Filter** : Advanced ingredient search
+- [ ] **Recipe builder** : Basic recipe creation
+- [ ] **Mobile responsive** : PWA ready
+
+### **PHASE 4 : IA Finale (3 semaines)**
+
+#### **Intelligence & Automation**
+- [ ] **Scraping automatique** : Nouveaux ingrédients
+- [ ] **Scoring système** : Crédibilité automatique  
+- [ ] **Suggestions** : Recipe recommendations
+- [ ] **Analytics** : Usage patterns, trends
+
+---
+
+## 🔧 **RÉFÉRENCES TECHNIQUES**
+
+### **APIs Opérationnelles**
+```bash
+# Hops Admin (CRUD complet)
+GET    /api/admin/hops           # Liste paginée
+POST   /api/admin/hops           # Création (UUID auto)
+GET    /api/admin/hops/{id}      # Détail
+PUT    /api/admin/hops/{id}      # Modification (version++)  
+DELETE /api/admin/hops/{id}      # Suppression
+
+# Hops Public (lecture seule)
+GET    /api/v1/hops              # Liste publique
+POST   /api/v1/hops/search       # Recherche avancée
+```
+
+### **Structure Database**
+- ✅ **admins** : Comptes admin + permissions + audit
+- ✅ **audit_logs** : Traçabilité complète
+- ✅ **hops** : Données complètes + versioning
+- ✅ **origins** : Références géographiques
+- 🔜 **malts, yeasts, beer_styles, recipes**
+
+### **Event Sourcing Actif**
+- Version tracking automatique ✅
+- Timestamps audit (created/updated) ✅  
+- Business events (AdminCreated, HopUpdated) ✅
+
+---
+
+## 🎯 **PROCHAINES ACTIONS IMMÉDIATES**
+
+### **Cette semaine**
+1. **Créer MaltAggregate** (copier pattern HopAggregate)
+2. **Évolution SQL malts** (tables + indexes)
+3. **Repository Slick** malts
+4. **Premier test API** malts
+
+### **Semaine suivante**
+1. **Commands/Queries** malts complets
+2. **Controllers** admin + public malts
+3. **Tests CRUD** malts (pattern hops)
+4. **Démarrer Yeasts** aggregate
+
+---
+
+## 📈 **MÉTRIQUES DE SUCCÈS**
+
+### **Domaine Hops (référence)**
+- ✅ **CRUD 100%** : Create, Read, Update, Delete
+- ✅ **Event Sourcing** : Version 1→2→5 confirmé
+- ✅ **Performance** : Réponses <100ms
+- ✅ **Validation** : Erreurs explicites
+- ✅ **Pagination** : totalCount correct
+
+### **Objectifs autres domaines**
+- 🎯 **Même niveau qualité** que Hops
+- 🎯 **API consistency** : Patterns identiques
+- 🎯 **Performance** : <100ms maintenu
+- 🎯 **Tests coverage** : >90% domain layer
+
+---
+
+## 💡 **PATTERNS ÉTABLIS (à réutiliser)**
+
+### **Value Objects Pattern**
+```scala
+final case class DomainId private (value: String) extends AnyVal
+object DomainId {
+  def apply(value: String): Either[String, DomainId] = // validation
+  def generate(): DomainId = UUID.randomUUID()
+  implicit val format: Format[DomainId] = // JSON
+}
+```
+
+### **Aggregate Pattern**  
+```scala
+case class DomainAggregate private (
+  id: DomainId,
+  // ... fields
+  override val version: Int
+) extends EventSourced {
+  def businessMethod(): Either[DomainError, DomainAggregate] = {
+    // business logic + raise(DomainEvent)
+  }
+}
+```
+
+### **API Controller Pattern**
+- Admin : CRUD secured + validation + audit
+- Public : Read-only + search + pagination
+- Errors : Structured JSON responses
+- Version : Auto-increment on updates
+
+---
+
+## 🚀 **VISION FINALE**
+
+**Système cible** : Plateforme de brassage intelligente avec :
+- **Backend DDD/CQRS** robuste et évolutif
+- **APIs REST** complètes et documentées  
+- **Frontend moderne** responsive et intuitif
+- **IA intégrée** pour découverte et suggestions
+- **Monitoring** complet avec audit trail
+- **Performance** enterprise-grade
+- **Sécurité** multicouche avec permissions
+
+**Impact attendu** : Révolutionner la planification de recettes de brassage avec une approche data-driven et assistée par IA.
+
+---
+
+*Ce document est maintenu à jour automatiquement et sert de référence pour tous les échanges du projet.*

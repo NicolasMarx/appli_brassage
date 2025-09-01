@@ -2,10 +2,10 @@
 
 Une plateforme moderne de brassage artisanal basée sur une architecture Domain-Driven Design (DDD) avec séparation CQRS et Event Sourcing. Système complet de gestion des ingrédients, création de recettes, calculs automatiques et assistance IA pour le brassage domestique et professionnel.
 
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-green)](https://github.com/votre-org/brewing-platform)
-[![Architecture](https://img.shields.io/badge/Architecture-DDD%2FCQRS-blue)](docs/architecture/README.md)
-[![Tech](https://img.shields.io/badge/Tech-Scala%2BPlay%2BPostgreSQL-orange)](#️-stack-technique)
-[![Version](https://img.shields.io/badge/Version-2.1.0-brightgreen)](https://github.com/votre-org/brewing-platform/releases)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-green)
+![Architecture](https://img.shields.io/badge/Architecture-DDD%2FCQRS-blue)
+![Tech](https://img.shields.io/badge/Tech-Scala%2BPlay%2BPostgreSQL-orange)
+![Version](https://img.shields.io/badge/Version-2.1.0-brightgreen)
 
 ---
 
@@ -39,7 +39,7 @@ Démocratiser le brassage artisanal en fournissant une plateforme technologique 
 
 ### Public Cible
 - **Brasseurs amateurs** : Interface simple, recettes guidées, calculs automatiques
-- **Brasseurs expérimentés** : Outils avancés, customisation, analyse approfondie
+- **Brasseurs expérimentés** : Outils avancés, customisation, analyse approfondie  
 - **Brasseries artisanales** : Scaling professionnel, gestion inventaire, API intégrations
 - **Éducation** : Plateforme d'apprentissage avec explications techniques
 
@@ -119,7 +119,7 @@ brewing-platform/
 - **Système de substitution** intelligent
 - **Recherche avancée** multi-critères
 
-#### 🌾 Gestion Malts
+#### 🌾 Gestion Malts  
 - **Types complets** : Base, Specialty, Adjunct avec business rules
 - **3 malts actifs** : Pilsner Malt, Pale Ale Malt, Munich Malt
 - **Caractéristiques techniques** : EBC, extraction, pouvoir diastasique
@@ -140,7 +140,7 @@ brewing-platform/
 - **Prédictions IA** : Résultats fermentation, profil gustatif
 - **Équivalences automatiques** entre souches
 
-#### 📝 Système Recettes (Phase 4 - Q3 2025)
+#### 📝 Système Recettes (Phase 4 - Q3 2025)  
 - **Recipe Builder** interactif avec drag & drop
 - **Calculs automatiques** : ABV, IBU, SRM, OG, FG en temps réel
 - **Scaling intelligent** : Adaptation selon équipement (MiniBrew, traditionnel)
@@ -150,7 +150,7 @@ brewing-platform/
 #### 🤖 Intelligence Artificielle (Phase 5 - Q4 2025)
 - **Découverte automatique** nouveaux ingrédients par scraping
 - **Scoring crédibilité** des données avec ML
-- **Recommandations personnalisées** selon historique utilisateur
+- **Recommandations personnalisées** selon historique utilisateur  
 - **Analytics avancées** : Trends, patterns, insights
 
 ---
@@ -181,7 +181,7 @@ brewing-platform/
 
 [📖 Documentation Complète Malts](docs/descriptif_malts.md)
 
-### 🦠 Domaine YEASTS
+### 🦠 Domaine YEASTS 
 **Status** : 🔜 Planifié Phase 2B  
 **Complexité** : ⭐⭐⭐⭐⭐
 
@@ -196,7 +196,7 @@ brewing-platform/
 **Status** : 🔜 Planifié Phase 4  
 **Complexité** : ⭐⭐⭐⭐⭐⭐
 
-- **Orchestration** : Coordination des 3 autres domaines
+- **Orchestration** : Coordination des 3 autres domaines  
 - **Calculs** : ABV, IBU, SRM, OG, FG automatiques avec précision
 - **Scaling** : Adaptation intelligente volumes et équipements
 - **IA** : Optimisation, recommandations, assistance création
@@ -491,7 +491,7 @@ class HopRepositoryIntegrationSpec extends AnyWordSpec with TestContainersForAll
 ## 📈 Performance
 
 ### 🎯 Objectifs Performance
-- **Response Time** : < 100ms P95 pour APIs publiques
+- **Response Time** : < 100ms P95 pour APIs publiques  
 - **Throughput** : > 1000 req/sec par instance
 - **Availability** : 99.9% uptime
 - **Scalabilité** : Horizontal scaling avec load balancer
@@ -552,7 +552,7 @@ brewing_platform_cache_hit_ratio
 **Dashboards Grafana**
 - **System Overview** : CPU, Memory, Disk, Network
 - **Application Metrics** : Request rates, response times, errors
-- **Database Performance** : Connections, queries, slow logs
+- **Database Performance** : Connections, queries, slow logs  
 - **Business Metrics** : Active hops, malts, popular searches
 
 ---
@@ -569,7 +569,7 @@ brewing_platform_cache_hit_ratio
 
 **Livrables**
 - [ ] 25+ souches de levures avec caractéristiques complètes
-- [ ] Algorithmes prédiction ML pour fermentation
+- [ ] Algorithmes prédiction ML pour fermentation  
 - [ ] API `/api/v1/yeasts` avec endpoints spécialisés
 - [ ] Documentation et tests complets
 
@@ -582,7 +582,7 @@ brewing_platform_cache_hit_ratio
 - [ ] Système permissions granulaires par rôle
 - [ ] Monitoring et analytics intégrés
 
-**Public Interface**
+**Public Interface**  
 - [ ] Catalogue ingrédients responsive (React/Vue)
 - [ ] Moteur recherche avancé avec facettes
 - [ ] PWA pour usage mobile optimisé
@@ -662,7 +662,7 @@ sbt wartremoverTest
 
 **Process Review**
 1. **Automated checks** : CI/CD pipeline doit passer
-2. **Code review** : Au moins 2 approbations required
+2. **Code review** : Au moins 2 approbations required  
 3. **Architecture review** : Pour changements domaine
 4. **Performance review** : Pour changements infrastructure
 
@@ -733,7 +733,7 @@ Ouvrir **GitHub Discussion** pour :
 
 ### 🏆 Contributeurs Principaux
 - [@lead-dev](https://github.com/lead-dev) - Architecture & Backend
-- [@frontend-guru](https://github.com/frontend-guru) - Interfaces utilisateur
+- [@frontend-guru](https://github.com/frontend-guru) - Interfaces utilisateur  
 - [@data-scientist](https://github.com/data-scientist) - Algorithmes ML/IA
 - [@brewing-expert](https://github.com/brewing-expert) - Expertise métier
 
@@ -780,7 +780,7 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 - **OpenAI** pour les capacités IA
 
 ### 📚 Resources & Inspiration
-- **"Designing Data-Intensive Applications"** par Martin Kleppmann
+- **"Designing Data-Intensive Applications"** par Martin Kleppmann  
 - **"Domain-Driven Design"** par Eric Evans
 - **"Building Microservices"** par Sam Newman
 - **"The Art and Science of Brewing"** par Charlie Bamforth
@@ -793,4 +793,4 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 [⬆️ Retour en haut](#-brewing-platform---dddcqrs)
 
-</di
+</div>

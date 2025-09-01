@@ -2,49 +2,47 @@ package domain.yeasts.model
 
 import play.api.libs.json._
 
-sealed trait FlocculationLevel {
-  def name: String
-  def description: String
-  def rackingRecommendation: String
+/**
+ * Niveau de floculation des levures
+ * CORRECTION: Ajout méthodes fromName et propriété clarificationTime
+ */
+sealed abstract class FlocculationLevel(
+  val name: String, 
+  val description: String,
+  val clarificationTime: Int // CORRECTION: Propriété manquante (en jours)
+) {
+  def rackingRecommendation: String = name match {
+    case "LOW" => "Soutirage après 2-3 semaines, attention aux levures en suspension"
+    case "MEDIUM" => "Soutirage après 10-14 jours, équilibre idéal"
+    case "HIGH" => "Soutirage après 7-10 jours, clarification rapide"
+    case "VERY_HIGH" => "Soutirage après 4-7 jours, floculation très rapide"
+    case _ => "Soutirage selon observation visuelle"
+  }
 }
 
 object FlocculationLevel {
-  case object Low extends FlocculationLevel { 
-    val name = "Low"
-    val description = "Reste en suspension longtemps"
-    val rackingRecommendation = "Attendre 2-3 semaines avant soutirage"
+
+  case object LOW extends FlocculationLevel("LOW", "Floculation faible", 14)
+  case object MEDIUM extends FlocculationLevel("MEDIUM", "Floculation moyenne", 10) 
+  case object HIGH extends FlocculationLevel("HIGH", "Floculation élevée", 7)
+  case object VERY_HIGH extends FlocculationLevel("VERY_HIGH", "Floculation très élevée", 4)
+
+  val all: List[FlocculationLevel] = List(LOW, MEDIUM, HIGH, VERY_HIGH)
+
+  // CORRECTION: Méthode fromName manquante
+  def fromName(name: String): Option[FlocculationLevel] = {
+    if (name == null || name.trim.isEmpty) return None
+    val cleanName = name.trim.toUpperCase.replace(" ", "_")
+    all.find(_.name.toUpperCase == cleanName)
   }
-  case object Medium extends FlocculationLevel { 
-    val name = "Medium"
-    val description = "Floculation modérée"
-    val rackingRecommendation = "Soutirer après 1-2 semaines"
-  }
-  case object MediumHigh extends FlocculationLevel { 
-    val name = "Medium-High"
-    val description = "Floculation élevée"
-    val rackingRecommendation = "Soutirer après 1 semaine"
-  }
-  case object High extends FlocculationLevel { 
-    val name = "High"
-    val description = "Floculation rapide"
-    val rackingRecommendation = "Soutirer après 5-7 jours"
-  }
-  case object VeryHigh extends FlocculationLevel { 
-    val name = "Very High"
-    val description = "Floculation très rapide"
-    val rackingRecommendation = "Soutirer après 3-5 jours"
-  }
-  
-  val all: List[FlocculationLevel] = List(Low, Medium, MediumHigh, High, VeryHigh)
-  
-  def fromString(value: String): Option[FlocculationLevel] = {
-    all.find(_.name.equalsIgnoreCase(value))
-  }
-  
+
   implicit val format: Format[FlocculationLevel] = Format(
-    Reads(json => json.validate[String].flatMap(s => 
-      fromString(s).map(JsSuccess(_)).getOrElse(JsError(s"Invalid flocculation level: $s"))
-    )),
-    Writes(fl => JsString(fl.name))
+    Reads(js => js.validate[String].flatMap { str =>
+      fromName(str) match {
+        case Some(level) => JsSuccess(level)
+        case None => JsError(s"Niveau de floculation invalide: $str")
+      }
+    }),
+    Writes(level => JsString(level.name))
   )
 }

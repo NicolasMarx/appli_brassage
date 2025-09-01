@@ -1,6 +1,7 @@
 package infrastructure.persistence.slick.tables
 
 import domain.yeasts.model._
+import domain.shared.NonEmptyString
 import play.api.libs.json._
 import slick.jdbc.PostgresProfile.api._
 import java.time.Instant
@@ -42,7 +43,10 @@ class YeastsTable(tag: Tag) extends Table[YeastRow](tag, "yeasts") {
     attenuationMin, attenuationMax, temperatureMin, temperatureMax,
     alcoholTolerance, flocculation, characteristics, status,
     version, createdAt, updatedAt
-  ) <> (YeastRow.tupled, YeastRow.unapply)
+  ) <> (
+    (YeastRow.apply _).tupled,
+    YeastRow.unapply
+  )
 }
 
 /**
@@ -79,15 +83,15 @@ object YeastRow {
       laboratory = yeast.laboratory.name,
       strain = yeast.strain.value,
       yeastType = yeast.yeastType.name,
-      attenuationMin = yeast.attenuation.min,
-      attenuationMax = yeast.attenuation.max,
-      temperatureMin = yeast.temperature.min,
-      temperatureMax = yeast.temperature.max,
+      attenuationMin = yeast.attenuationRange.min,
+      attenuationMax = yeast.attenuationRange.max,
+      temperatureMin = yeast.fermentationTemp.min,
+      temperatureMax = yeast.fermentationTemp.max,
       alcoholTolerance = yeast.alcoholTolerance.value,
       flocculation = yeast.flocculation.name,
       characteristics = Json.toJson(yeast.characteristics).toString(),
-      status = yeast.status.name,
-      version = yeast.version,
+      status = if (yeast.isActive) "ACTIVE" else "INACTIVE",
+      version = yeast.aggregateVersion.toLong,
       createdAt = yeast.createdAt,
       updatedAt = yeast.updatedAt
     )
@@ -99,15 +103,16 @@ object YeastRow {
   def toAggregate(row: YeastRow): Either[String, YeastAggregate] = {
     for {
       yeastId <- Right(YeastId(row.id))
-      name <- YeastName.fromString(row.name)
+      yeastName <- YeastName.fromString(row.name)
+      name <- Right(NonEmptyString.unsafe(yeastName.value))
       laboratory <- YeastLaboratory.fromName(row.laboratory)
         .toRight(s"Laboratoire inconnu: ${row.laboratory}")
       strain <- YeastStrain.fromString(row.strain)
       yeastType <- YeastType.fromName(row.yeastType)
         .toRight(s"Type levure inconnu: ${row.yeastType}")
-      attenuation <- Right(AttenuationRange(row.attenuationMin, row.attenuationMax))
-      temperature <- Right(FermentationTemp(row.temperatureMin, row.temperatureMax))
-      alcoholTolerance <- Right(AlcoholTolerance(row.alcoholTolerance))
+      attenuationRange <- Right(AttenuationRange.unsafe(row.attenuationMin, row.attenuationMax))
+      fermentationTemp <- Right(FermentationTemp.unsafe(row.temperatureMin, row.temperatureMax))
+      alcoholTolerance <- Right(AlcoholTolerance.unsafe(row.alcoholTolerance))
       flocculation <- FlocculationLevel.fromName(row.flocculation)
         .toRight(s"Floculation inconnue: ${row.flocculation}")
       characteristics <- parseCharacteristics(row.characteristics)
@@ -117,18 +122,19 @@ object YeastRow {
       YeastAggregate(
         id = yeastId,
         name = name,
-        laboratory = laboratory,
         strain = strain,
         yeastType = yeastType,
-        attenuation = attenuation,
-        temperature = temperature,
-        alcoholTolerance = alcoholTolerance,
+        laboratory = laboratory,
+        attenuationRange = attenuationRange,
+        fermentationTemp = fermentationTemp,
         flocculation = flocculation,
+        alcoholTolerance = alcoholTolerance,
+        description = None, // TODO: add description field to row
         characteristics = characteristics,
-        status = status,
-        version = row.version,
+        isActive = row.status == "ACTIVE",
         createdAt = row.createdAt,
-        updatedAt = row.updatedAt
+        updatedAt = row.updatedAt,
+        aggregateVersion = row.version.toInt
       )
     }
   }

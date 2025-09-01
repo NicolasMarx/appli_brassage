@@ -1,228 +1,103 @@
 package application.yeasts.dtos
-import application.yeasts.dtos.YeastResponseDTOs._
-import application.yeasts.dtos.YeastRequestDTOs._
 
-import javax.inject._
+// CORRECTION: Suppression des imports inexistants
+import domain.yeasts.model._
+import play.api.libs.json._
+import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future}
-import java.util.UUID
-import application.yeasts.handlers.{YeastCommandHandlers, YeastQueryHandlers}
-import application.commands.admin.yeasts._
-import application.queries.public.yeasts._
 
-// Importer les DTOs
+/**
+ * DTOs pour le domaine Yeasts
+ * CORRECTION: Suppression imports YeastResponseDTOs/YeastRequestDTOs inexistants
+ */
 
-@Singleton
-class YeastDTOs @Inject()(
-  commandHandlers: YeastCommandHandlers,
-  queryHandlers: YeastQueryHandlers
-)(implicit ec: ExecutionContext) {
+// DTOs de requête
+case class CreateYeastRequest(
+  name: String,
+  strain: String,
+  yeastType: String,
+  laboratory: String,
+  attenuationMin: Double,
+  attenuationMax: Double,
+  temperatureMin: Double,
+  temperatureMax: Double,
+  flocculation: String,
+  alcoholTolerance: Double,
+  description: Option[String] = None
+)
 
-  // =========================================================================
-  // QUERIES (READ OPERATIONS)
-  // =========================================================================
+case class UpdateYeastRequest(
+  name: Option[String] = None,
+  strain: Option[String] = None,
+  yeastType: Option[String] = None,
+  laboratory: Option[String] = None,
+  attenuationMin: Option[Double] = None,
+  attenuationMax: Option[Double] = None,
+  temperatureMin: Option[Double] = None,
+  temperatureMax: Option[Double] = None,
+  flocculation: Option[String] = None,
+  alcoholTolerance: Option[Double] = None,
+  description: Option[String] = None
+)
 
-  def getYeastById(yeastId: UUID): Future[Option[YeastDetailResponseDTO]] = {
-    val query = GetYeastByIdQuery(yeastId)
-    queryHandlers.handleGetById(query)
-  }
+// DTOs de réponse
+case class YeastResponse(
+  id: String,
+  name: String,
+  strain: String,
+  yeastType: String,
+  laboratory: String,
+  attenuationRange: String,
+  temperatureRange: String,
+  flocculation: String,
+  alcoholTolerance: Double,
+  description: Option[String],
+  isActive: Boolean,
+  createdAt: Instant,
+  updatedAt: Instant
+)
 
-  def findYeasts(searchRequest: YeastSearchRequestDTO): Future[Either[List[String], YeastPageResponseDTO]] = {
-    val query = FindYeastsQuery(
-      name = searchRequest.name,
-      laboratory = searchRequest.laboratory,
-      yeastType = searchRequest.yeastType,
-      minAttenuation = searchRequest.minAttenuation,
-      maxAttenuation = searchRequest.maxAttenuation,
-      minTemperature = searchRequest.minTemperature,
-      maxTemperature = searchRequest.maxTemperature,
-      minAlcoholTolerance = searchRequest.minAlcoholTolerance,
-      maxAlcoholTolerance = searchRequest.maxAlcoholTolerance,
-      flocculation = searchRequest.flocculation,
-      characteristics = searchRequest.characteristics,
-      status = searchRequest.status,
-      page = searchRequest.page,
-      size = searchRequest.size
+case class YeastListResponse(
+  yeasts: List[YeastResponse],
+  totalCount: Long,
+  page: Int,
+  pageSize: Int
+)
+
+// CORRECTION: Classe sans ExecutionContext inutilisé
+class YeastDTOs {
+
+  def fromAggregate(yeast: YeastAggregate): YeastResponse = {
+    YeastResponse(
+      id = yeast.id.asString,
+      name = yeast.name.value,
+      strain = yeast.strain.value,
+      yeastType = yeast.yeastType.name,
+      laboratory = yeast.laboratory.name,
+      attenuationRange = s"${yeast.attenuationRange.min}%-${yeast.attenuationRange.max}%",
+      temperatureRange = s"${yeast.fermentationTemp.min}°C-${yeast.fermentationTemp.max}°C",
+      flocculation = yeast.flocculation.name,
+      alcoholTolerance = yeast.alcoholTolerance.value,
+      description = yeast.description,
+      isActive = yeast.isActive,
+      createdAt = yeast.createdAt,
+      updatedAt = yeast.updatedAt
     )
-    queryHandlers.handleFindYeasts(query)
   }
 
-  def findYeastsByType(yeastType: String, limit: Option[Int] = None): Future[Either[String, List[YeastSummaryDTO]]] = {
-    val query = FindYeastsByTypeQuery(yeastType, limit)
-    queryHandlers.handleFindByType(query)
-  }
-
-  def findYeastsByLaboratory(laboratory: String, limit: Option[Int] = None): Future[Either[String, List[YeastSummaryDTO]]] = {
-    val query = FindYeastsByLaboratoryQuery(laboratory, limit)
-    queryHandlers.handleFindByLaboratory(query)
-  }
-
-  def searchYeasts(searchTerm: String, limit: Option[Int] = None): Future[Either[String, List[YeastSummaryDTO]]] = {
-    val query = SearchYeastsQuery(searchTerm, limit)
-    queryHandlers.handleSearch(query)
-  }
-
-  def getYeastStatistics(): Future[YeastStatsDTO] = {
-    queryHandlers.handleGetStats()
-  }
-
-  def getYeastRecommendations(
-    beerStyle: Option[String] = None,
-    targetAbv: Option[Double] = None,
-    fermentationTemp: Option[Int] = None,
-    desiredCharacteristics: Option[List[String]] = None,
-    limit: Int = 10
-  ): Future[Either[List[String], List[YeastRecommendationDTO]]] = {
-    
-    val query = GetYeastRecommendationsQuery(
-      beerStyle,
-      targetAbv,
-      fermentationTemp,
-      desiredCharacteristics,
-      limit
+  def toListResponse(yeasts: List[YeastAggregate], totalCount: Long, page: Int, pageSize: Int): YeastListResponse = {
+    YeastListResponse(
+      yeasts = yeasts.map(fromAggregate),
+      totalCount = totalCount,
+      page = page,
+      pageSize = pageSize
     )
-    queryHandlers.handleGetRecommendations(query)
   }
+}
 
-  def getYeastAlternatives(
-    originalYeastId: UUID,
-    reason: String = "unavailable",
-    limit: Int = 5
-  ): Future[Either[List[String], List[YeastRecommendationDTO]]] = {
-
-    val query = GetYeastAlternativesQuery(originalYeastId, reason, limit)
-    queryHandlers.handleGetAlternatives(query)
-  }
-
-  // =========================================================================
-  // COMMANDS (WRITE OPERATIONS)
-  // =========================================================================
-
-  def createYeast(
-    request: CreateYeastRequestDTO, 
-    createdBy: UUID
-  ): Future[Either[List[String], YeastDetailResponseDTO]] = {
-    
-    val command = CreateYeastCommand(
-      name = request.name,
-      laboratory = request.laboratory,
-      strain = request.strain,
-      yeastType = request.yeastType,
-      attenuationMin = request.attenuationMin,
-      attenuationMax = request.attenuationMax,
-      temperatureMin = request.temperatureMin,
-      temperatureMax = request.temperatureMax,
-      alcoholTolerance = request.alcoholTolerance,
-      flocculation = request.flocculation,
-      aromaProfile = request.aromaProfile,
-      flavorProfile = request.flavorProfile,
-      esters = request.esters,
-      phenols = request.phenols,
-      otherCompounds = request.otherCompounds,
-      notes = request.notes,
-      createdBy = createdBy
-    )
-    commandHandlers.handleCreateYeast(command)
-  }
-
-  def updateYeast(
-    yeastId: UUID,
-    request: UpdateYeastRequestDTO,
-    updatedBy: UUID
-  ): Future[Either[List[String], YeastDetailResponseDTO]] = {
-    
-    val command = UpdateYeastCommand(
-      yeastId = yeastId,
-      name = request.name,
-      laboratory = request.laboratory,
-      strain = request.strain,
-      attenuationMin = request.attenuationMin,
-      attenuationMax = request.attenuationMax,
-      temperatureMin = request.temperatureMin,
-      temperatureMax = request.temperatureMax,
-      alcoholTolerance = request.alcoholTolerance,
-      flocculation = request.flocculation,
-      aromaProfile = request.aromaProfile,
-      flavorProfile = request.flavorProfile,
-      esters = request.esters,
-      phenols = request.phenols,
-      otherCompounds = request.otherCompounds,
-      notes = request.notes,
-      updatedBy = updatedBy
-    )
-    commandHandlers.handleUpdateYeast(command)
-  }
-
-  def changeYeastStatus(
-    yeastId: UUID,
-    request: ChangeStatusRequestDTO,
-    changedBy: UUID
-  ): Future[Either[String, Unit]] = {
-    
-    val command = ChangeYeastStatusCommand(
-      yeastId = yeastId,
-      newStatus = request.status,
-      reason = request.reason,
-      changedBy = changedBy
-    )
-    commandHandlers.handleChangeStatus(command)
-  }
-
-  def activateYeast(yeastId: UUID, activatedBy: UUID): Future[Either[String, YeastDetailResponseDTO]] = {
-    val command = ActivateYeastCommand(yeastId, activatedBy)
-    commandHandlers.handleActivateYeast(command)
-  }
-
-  def deactivateYeast(
-    yeastId: UUID, 
-    reason: Option[String], 
-    deactivatedBy: UUID
-  ): Future[Either[String, YeastDetailResponseDTO]] = {
-    val command = DeactivateYeastCommand(yeastId, reason, deactivatedBy)
-    commandHandlers.handleDeactivateYeast(command)
-  }
-
-  def archiveYeast(
-    yeastId: UUID, 
-    reason: Option[String], 
-    archivedBy: UUID
-  ): Future[Either[String, YeastDetailResponseDTO]] = {
-    val command = ArchiveYeastCommand(yeastId, reason, archivedBy)
-    commandHandlers.handleArchiveYeast(command)
-  }
-
-  def deleteYeast(yeastId: UUID, reason: Option[String], deletedBy: UUID): Future[Either[String, Unit]] = {
-    val command = DeleteYeastCommand(yeastId, reason, deletedBy)
-    commandHandlers.handleDeleteYeast(command)
-  }
-
-  def createYeastsBatch(
-    requests: List[CreateYeastRequestDTO],
-    createdBy: UUID
-  ): Future[Either[List[String], List[YeastDetailResponseDTO]]] = {
-    
-    val commands = requests.map { request =>
-      CreateYeastCommand(
-        name = request.name,
-        laboratory = request.laboratory,
-        strain = request.strain,
-        yeastType = request.yeastType,
-        attenuationMin = request.attenuationMin,
-        attenuationMax = request.attenuationMax,
-        temperatureMin = request.temperatureMin,
-        temperatureMax = request.temperatureMax,
-        alcoholTolerance = request.alcoholTolerance,
-        flocculation = request.flocculation,
-        aromaProfile = request.aromaProfile,
-        flavorProfile = request.flavorProfile,
-        esters = request.esters,
-        phenols = request.phenols,
-        otherCompounds = request.otherCompounds,
-        notes = request.notes,
-        createdBy = createdBy
-      )
-    }
-    
-    val batchCommand = CreateYeastsBatchCommand(commands)
-    commandHandlers.handleBatchCreate(batchCommand)
-  }
+object YeastDTOs {
+  implicit val createRequestFormat: Format[CreateYeastRequest] = Json.format[CreateYeastRequest]
+  implicit val updateRequestFormat: Format[UpdateYeastRequest] = Json.format[UpdateYeastRequest]
+  implicit val responseFormat: Format[YeastResponse] = Json.format[YeastResponse]
+  implicit val listResponseFormat: Format[YeastListResponse] = Json.format[YeastListResponse]
 }

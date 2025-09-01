@@ -1,6 +1,7 @@
 package domain.yeasts.model
 
 import domain.shared.ValueObject
+import play.api.libs.json._
 import java.util.UUID
 
 /**
@@ -36,4 +37,14 @@ object YeastId {
    * Crée un YeastId à partir d'un UUID existant
    */
   def apply(uuid: UUID): YeastId = new YeastId(uuid)
+  
+  implicit val format: Format[YeastId] = Format(
+    Reads(js => js.validate[String].flatMap { str =>
+      fromString(str) match {
+        case Right(yeastId) => JsSuccess(yeastId)
+        case Left(error) => JsError(error)
+      }
+    }),
+    Writes(yeastId => JsString(yeastId.asString))
+  )
 }

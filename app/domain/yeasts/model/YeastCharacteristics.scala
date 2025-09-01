@@ -12,6 +12,8 @@ case class YeastCharacteristics(
 ) {
   def isClean: Boolean = esters.isEmpty && phenols.isEmpty && otherCompounds.isEmpty
   def allCharacteristics: List[String] = aromaProfile ++ flavorProfile ++ esters ++ phenols ++ otherCompounds
+  
+  def toJson: JsValue = Json.toJson(this)
 }
 
 object YeastCharacteristics {

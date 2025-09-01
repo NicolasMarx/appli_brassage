@@ -1,87 +1,50 @@
 package domain.yeasts.model
 
-import domain.shared.ValueObject
+import play.api.libs.json._
 
 /**
- * Value Object pour les laboratoires de levures
- * Énumération des principaux laboratoires de levures brassicoles
+ * Laboratoires de levures
+ * CORRECTION: Ajout méthode fromString manquante
  */
-sealed trait YeastLaboratory extends ValueObject {
-  def name: String
-  def code: String
-  def description: String
-}
+sealed abstract class YeastLaboratory(val name: String, val fullName: String)
 
 object YeastLaboratory {
-  
-  case object WhiteLabs extends YeastLaboratory {
-    val name = "White Labs"
-    val code = "WLP"
-    val description = "Laboratoire californien spécialisé en levures liquides"
+
+  case object Wyeast extends YeastLaboratory("WYEAST", "Wyeast Laboratories")
+  case object WhiteLabs extends YeastLaboratory("WHITE_LABS", "White Labs") 
+  case object Lallemand extends YeastLaboratory("LALLEMAND", "Lallemand Brewing")
+  case object Fermentis extends YeastLaboratory("FERMENTIS", "Fermentis")
+  case object Imperial extends YeastLaboratory("IMPERIAL", "Imperial Yeast")
+  case object Omega extends YeastLaboratory("OMEGA", "Omega Yeast Labs")
+  case object Other extends YeastLaboratory("OTHER", "Autre laboratoire")
+
+  val all: List[YeastLaboratory] = List(Wyeast, WhiteLabs, Lallemand, Fermentis, Imperial, Omega, Other)
+
+  // CORRECTION: Méthode fromString manquante
+  def fromString(name: String): Option[YeastLaboratory] = {
+    if (name == null || name.trim.isEmpty) return Some(Other)
+    
+    val cleanName = name.trim.toUpperCase.replace(" ", "_")
+    all.find(_.name.toUpperCase == cleanName) orElse
+    all.find(_.fullName.toUpperCase.replace(" ", "_") == cleanName) orElse
+    Some(Other) // Fallback vers Other si non trouvé
   }
   
-  case object Wyeast extends YeastLaboratory {
-    val name = "Wyeast Laboratories"
-    val code = "WY"
-    val description = "Laboratoire de l'Oregon, pionnier des levures liquides"
-  }
+  // Alias pour compatibilité
+  def fromName(name: String): Option[YeastLaboratory] = fromString(name)
   
-  case object Lallemand extends YeastLaboratory {
-    val name = "Lallemand Brewing"
-    val code = "LB"
-    val description = "Groupe français, levures sèches haute qualité"
+  // Méthode parse manquante (retourne Either pour validation)
+  def parse(name: String): Either[String, YeastLaboratory] = {
+    fromString(name).toRight(s"Laboratoire invalide: $name")
   }
-  
-  case object Fermentis extends YeastLaboratory {
-    val name = "Fermentis"
-    val code = "F"
-    val description = "Division levures sèches de Lesaffre"
-  }
-  
-  case object ImperialYeast extends YeastLaboratory {
-    val name = "Imperial Yeast"
-    val code = "I"
-    val description = "Laboratoire américain innovant"
-  }
-  
-  case object Mangrove extends YeastLaboratory {
-    val name = "Mangrove Jack's"
-    val code = "MJ"
-    val description = "Laboratoire néo-zélandais"
-  }
-  
-  case object Other extends YeastLaboratory {
-    val name = "Other"
-    val code = "OTH"
-    val description = "Autres laboratoires"
-  }
-  
-  val values: List[YeastLaboratory] = List(
-    WhiteLabs, Wyeast, Lallemand, Fermentis, 
-    ImperialYeast, Mangrove, Other
+
+  implicit val format: Format[YeastLaboratory] = Format(
+    Reads(js => js.validate[String].flatMap { str =>
+      fromString(str) match {
+        case Some(lab) => JsSuccess(lab)
+        case None => JsSuccess(Other) // Toujours fallback vers Other
+      }
+    }),
+    Writes(lab => JsString(lab.name))
   )
-  
-  /**
-   * Recherche par nom
-   */
-  def fromName(name: String): Option[YeastLaboratory] = {
-    values.find(_.name.equalsIgnoreCase(name.trim))
-  }
-  
-  /**
-   * Recherche par code
-   */
-  def fromCode(code: String): Option[YeastLaboratory] = {
-    values.find(_.code.equalsIgnoreCase(code.trim))
-  }
-  
-  /**
-   * Parsing flexible
-   */
-  def parse(input: String): Either[String, YeastLaboratory] = {
-    val trimmed = input.trim
-    fromName(trimmed)
-      .orElse(fromCode(trimmed))
-      .toRight(s"Laboratoire inconnu: $input")
-  }
 }
