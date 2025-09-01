@@ -1,3 +1,5 @@
-// Query détail houblon (publique)
-// TODO: Implémenter selon l'architecture DDD/CQRS
+package application.queries.public.hops
 
+case class HopDetailQuery(
+  hopId: String
+)

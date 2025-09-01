@@ -4,9 +4,9 @@
 GET     /                           controllers.HomeController.index()
 
 # API Publique Hops
-GET     /api/v1/hops                interfaces.http.api.v1.hops.HopsController.list(page: Int ?= 0, size: Int ?= 20)
-GET     /api/v1/hops/:id            interfaces.http.api.v1.hops.HopsController.detail(id: String)
-POST    /api/v1/hops/search         interfaces.http.api.v1.hops.HopsController.search()
+GET     /api/v1/hops                controllers.api.v1.hops.HopsController.list(page: Int ?= 0, size: Int ?= 20)
+GET     /api/v1/hops/:id            controllers.api.v1.hops.HopsController.detail(id: String)
+POST    /api/v1/hops/search         controllers.api.v1.hops.HopsController.search()
 
 # API Admin Hops
 GET     /api/admin/hops             controllers.admin.AdminHopsController.list(page: Int ?= 0, size: Int ?= 20)

@@ -1,3 +1,9 @@
-// Query liste houblons (publique)
-// TODO: Implémenter selon l'architecture DDD/CQRS
+package application.queries.public.hops
 
+import domain.hops.model.HopUsage
+
+case class HopListQuery(
+  usage: Option[HopUsage] = None,
+  page: Int = 0,
+  size: Int = 20
+)
