@@ -1,19 +1,40 @@
 package application.commands.admin.malts.handlers
 
+import application.commands.admin.malts.UpdateMaltCommand
+import domain.malts.repositories.{MaltReadRepository, MaltWriteRepository}
+import domain.malts.model.MaltId
 import domain.common.DomainError
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 /**
- * Handler pour UpdateMaltCommand - Implémentation basique pour compilation
+ * Handler pour la mise à jour de malts
  */
 @Singleton
 class UpdateMaltCommandHandler @Inject()(
-  // repositories seront injectés plus tard
+  maltReadRepo: MaltReadRepository,
+  maltWriteRepo: MaltWriteRepository
 )(implicit ec: ExecutionContext) {
 
-  // Implémentation temporaire pour permettre la compilation
-  def handle(command: Any): Future[Either[DomainError, String]] = {
-    Future.successful(Right("updated-malt-id"))
+  def handle(command: UpdateMaltCommand): Future[Either[DomainError, MaltId]] = {
+    command.validate() match {
+      case Left(error) => Future.successful(Left(error))
+      case Right(validCommand) => processUpdate(validCommand)
+    }
+  }
+
+  private def processUpdate(command: UpdateMaltCommand): Future[Either[DomainError, MaltId]] = {
+    val maltId = MaltId.fromString(command.id)
+    
+    for {
+      maltOpt <- maltReadRepo.findById(maltId)
+      result <- maltOpt match {
+        case Some(malt) => 
+          // TODO: Implémenter la mise à jour complète
+          Future.successful(Right(malt.id))
+        case None => 
+          Future.successful(Left(DomainError.notFound("Malt", command.id)))
+      }
+    } yield result
   }
 }

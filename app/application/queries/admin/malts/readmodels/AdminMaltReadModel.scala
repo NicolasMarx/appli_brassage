@@ -4,6 +4,9 @@ import domain.malts.model.MaltAggregate
 import play.api.libs.json._
 import java.time.Instant
 
+/**
+ * ReadModel pour les malts (interface admin)
+ */
 case class AdminMaltReadModel(
   id: String,
   name: String,
@@ -17,65 +20,9 @@ case class AdminMaltReadModel(
   source: String,
   isActive: Boolean,
   credibilityScore: Double,
-  qualityScore: Double,
-  needsReview: Boolean,
   createdAt: Instant,
   updatedAt: Instant,
   version: Long
-)
-
-case class AdminMaltDetailResult(
-  malt: AdminMaltReadModel,
-  substitutes: List[AdminSubstituteReadModel],
-  beerStyleCompatibilities: List[BeerStyleCompatibility],
-  statistics: MaltUsageStatistics,
-  qualityAnalysis: QualityAnalysis
-)
-
-case class AdminSubstituteReadModel(
-  id: String,
-  name: String,
-  substitutionRatio: Double,
-  notes: Option[String],
-  qualityScore: Double
-)
-
-case class BeerStyleCompatibility(
-  styleId: String,
-  styleName: String,
-  compatibilityScore: Double,
-  usageNotes: String
-)
-
-case class MaltUsageStatistics(
-  recipeCount: Int,
-  avgUsagePercent: Double,
-  popularityScore: Double
-)
-
-case class QualityAnalysis(
-  dataCompleteness: Double,
-  sourceReliability: String,
-  reviewStatus: String,
-  lastValidated: Option[Instant]
-)
-
-case class AdminMaltSearchResult(
-  malts: List[AdminMaltReadModel],
-  totalCount: Long,
-  currentPage: Int,
-  pageSize: Int,
-  hasNext: Boolean,
-  filters: AdminSearchFilters
-)
-
-case class AdminSearchFilters(
-  maltType: Option[String],
-  status: Option[String],
-  source: Option[String],
-  minCredibility: Option[Double],
-  needsReview: Boolean,
-  searchTerm: Option[String]
 )
 
 object AdminMaltReadModel {
@@ -93,8 +40,6 @@ object AdminMaltReadModel {
       source = malt.source.name,
       isActive = malt.isActive,
       credibilityScore = malt.credibilityScore,
-      qualityScore = malt.qualityScore,
-      needsReview = malt.needsReview,
       createdAt = malt.createdAt,
       updatedAt = malt.updatedAt,
       version = malt.version
@@ -102,11 +47,4 @@ object AdminMaltReadModel {
   }
   
   implicit val format: Format[AdminMaltReadModel] = Json.format[AdminMaltReadModel]
-  implicit val substituteFormat: Format[AdminSubstituteReadModel] = Json.format[AdminSubstituteReadModel]
-  implicit val compatibilityFormat: Format[BeerStyleCompatibility] = Json.format[BeerStyleCompatibility]
-  implicit val statisticsFormat: Format[MaltUsageStatistics] = Json.format[MaltUsageStatistics]
-  implicit val qualityFormat: Format[QualityAnalysis] = Json.format[QualityAnalysis]
-  implicit val detailFormat: Format[AdminMaltDetailResult] = Json.format[AdminMaltDetailResult]
-  implicit val searchFiltersFormat: Format[AdminSearchFilters] = Json.format[AdminSearchFilters]
-  implicit val searchResultFormat: Format[AdminMaltSearchResult] = Json.format[AdminMaltSearchResult]
 }
