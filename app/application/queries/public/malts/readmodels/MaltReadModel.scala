@@ -2,11 +2,7 @@ package application.queries.public.malts.readmodels
 
 import domain.malts.model.MaltAggregate
 import play.api.libs.json._
-import java.time.Instant
 
-/**
- * ReadModel pour les malts (API publique)
- */
 case class MaltReadModel(
   id: String,
   name: String,
@@ -17,15 +13,14 @@ case class MaltReadModel(
   originCode: String,
   description: Option[String],
   flavorProfiles: List[String],
-  isActive: Boolean,
-  createdAt: Instant,
-  updatedAt: Instant
+  isActive: Boolean
 )
 
 object MaltReadModel {
+  
   def fromAggregate(malt: MaltAggregate): MaltReadModel = {
     MaltReadModel(
-      id = malt.id.toString,
+      id = malt.id.toString, // Correction: toString au lieu de .value
       name = malt.name.value,
       maltType = malt.maltType.name,
       ebcColor = malt.ebcColor.value,
@@ -34,11 +29,37 @@ object MaltReadModel {
       originCode = malt.originCode,
       description = malt.description,
       flavorProfiles = malt.flavorProfiles,
-      isActive = malt.isActive,
-      createdAt = malt.createdAt,
-      updatedAt = malt.updatedAt
+      isActive = malt.isActive
     )
   }
   
   implicit val format: Format[MaltReadModel] = Json.format[MaltReadModel]
+}
+
+case class MaltListResponse(
+  malts: List[MaltReadModel],
+  totalCount: Long,
+  page: Int,
+  size: Int,
+  hasNext: Boolean
+)
+
+object MaltListResponse {
+  
+  def create(
+    malts: List[MaltReadModel],
+    totalCount: Long,
+    page: Int,
+    size: Int
+  ): MaltListResponse = {
+    MaltListResponse(
+      malts = malts,
+      totalCount = totalCount,
+      page = page,
+      size = size,
+      hasNext = (page + 1) * size < totalCount
+    )
+  }
+  
+  implicit val format: Format[MaltListResponse] = Json.format[MaltListResponse]
 }

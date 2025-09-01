@@ -1,9 +1,9 @@
 package application.queries.public.malts
 
-/**
- * Query pour la liste des malts (API publique)
- */
+import domain.malts.model.MaltType
+
 case class MaltListQuery(
+  maltType: Option[MaltType] = None,
   page: Int = 0,
-  pageSize: Int = 20
+  size: Int = 20
 )

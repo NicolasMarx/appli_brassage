@@ -24,3 +24,14 @@ DELETE  /api/admin/malts/:id        controllers.admin.AdminMaltsController.delet
 
 # Assets
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+
+# ==============================================================================
+# API MALTS - INTERFACE PUBLIQUE
+# ==============================================================================
+
+# Liste des malts (publique)
+GET     /api/v1/malts                   interfaces.http.api.v1.malts.MaltsController.list(page: Int ?= 0, size: Int ?= 20)
+GET     /api/v1/malts/:id               interfaces.http.api.v1.malts.MaltsController.detail(id: String)
+POST    /api/v1/malts/search            interfaces.http.api.v1.malts.MaltsController.search()
+GET     /api/v1/malts/type/:maltType    interfaces.http.api.v1.malts.MaltsController.byType(maltType: String, page: Int ?= 0, size: Int ?= 20)
+
