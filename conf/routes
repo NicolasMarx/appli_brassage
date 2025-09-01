@@ -1,13 +1,37 @@
+# Routes finales nettoyées
+
+# Page d'accueil
 GET     /                           controllers.HomeController.index()
 
-GET     /api/v1/hops                controllers.api.v1.hops.HopsController.list(page: Int ?= 0, size: Int ?= 20)
-GET     /api/v1/hops/:id            controllers.api.v1.hops.HopsController.detail(id: String)
-POST    /api/v1/hops/search         controllers.api.v1.hops.HopsController.search()
+# API Publique Hops
+GET     /api/v1/hops                interfaces.http.api.v1.hops.HopsController.list(page: Int ?= 0, size: Int ?= 20)
+GET     /api/v1/hops/:id            interfaces.http.api.v1.hops.HopsController.detail(id: String)
+POST    /api/v1/hops/search         interfaces.http.api.v1.hops.HopsController.search()
 
+# API Admin Hops
 GET     /api/admin/hops             controllers.admin.AdminHopsController.list(page: Int ?= 0, size: Int ?= 20)
 POST    /api/admin/hops             controllers.admin.AdminHopsController.create()
 GET     /api/admin/hops/:id         controllers.admin.AdminHopsController.detail(id: String)
 PUT     /api/admin/hops/:id         controllers.admin.AdminHopsController.update(id: String)
 DELETE  /api/admin/hops/:id         controllers.admin.AdminHopsController.delete(id: String)
 
+# API Admin Malts
+GET     /api/admin/malts            controllers.admin.AdminMaltsController.list(page: Int ?= 0, size: Int ?= 20)
+POST    /api/admin/malts            controllers.admin.AdminMaltsController.create()
+GET     /api/admin/malts/:id        controllers.admin.AdminMaltsController.get(id: String)
+PUT     /api/admin/malts/:id        controllers.admin.AdminMaltsController.update(id: String)
+DELETE  /api/admin/malts/:id        controllers.admin.AdminMaltsController.delete(id: String)
+
+# Assets
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+
+# ==============================================================================
+# API MALTS - INTERFACE PUBLIQUE
+# ==============================================================================
+
+# Liste des malts (publique)
+GET     /api/v1/malts                   interfaces.http.api.v1.malts.MaltsController.list(page: Int ?= 0, size: Int ?= 20)
+GET     /api/v1/malts/:id               interfaces.http.api.v1.malts.MaltsController.detail(id: String)
+POST    /api/v1/malts/search            interfaces.http.api.v1.malts.MaltsController.search()
+GET     /api/v1/malts/type/:maltType    interfaces.http.api.v1.malts.MaltsController.byType(maltType: String, page: Int ?= 0, size: Int ?= 20)
+

@@ -1,9 +1,7 @@
-// app/domain/common/DomainError.scala
 package domain.common
 
 /**
  * Hiérarchie d'erreurs métier pour architecture DDD
- * Permet une gestion d'erreurs type-safe et explicite
  */
 sealed trait DomainError {
   def message: String
@@ -26,7 +24,7 @@ case class NotFoundError(resourceType: String, identifier: String) extends Domai
   val code: String = "NOT_FOUND"
 }
 
-// Erreurs de conflit (ex: email déjà utilisé)
+// Erreurs de conflit
 case class ConflictError(message: String, conflictingField: String) extends DomainError {
   val code: String = "CONFLICT"
 }
@@ -39,6 +37,11 @@ case class AuthorizationError(message: String, requiredPermission: Option[String
 // Erreurs d'authentification
 case class AuthenticationError(message: String) extends DomainError {
   val code: String = "AUTHENTICATION_ERROR"
+}
+
+// Erreurs techniques (exceptions, BDD, etc.)
+case class TechnicalError(message: String, cause: Option[Throwable] = None) extends DomainError {
+  val code: String = "TECHNICAL_ERROR"
 }
 
 object DomainError {
@@ -59,4 +62,8 @@ object DomainError {
   
   def unauthenticated(message: String): AuthenticationError =
     AuthenticationError(message)
+  
+  // Méthode manquante ajoutée !
+  def technical(message: String, cause: Throwable = null): TechnicalError =
+    TechnicalError(message, Option(cause))
 }

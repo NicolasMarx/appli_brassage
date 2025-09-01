@@ -1,0 +1,111 @@
+package interfaces.http.api.admin.malts
+
+import play.api.mvc._
+import play.api.libs.json._
+import interfaces.http.common.BaseController
+import interfaces.actions.AdminSecuredAction
+import application.queries.admin.malts.readmodels.AdminMaltReadModel
+
+import javax.inject.{Inject, Singleton}
+import scala.concurrent.{ExecutionContext, Future}
+
+@Singleton  
+class AdminMaltsController @Inject()(
+  val controllerComponents: ControllerComponents,
+  adminAction: AdminSecuredAction
+)(implicit ec: ExecutionContext) extends BaseController {
+
+  def list(
+    page: Int = 0,
+    pageSize: Int = 20,
+    maltType: Option[String] = None,
+    status: Option[String] = None,
+    source: Option[String] = None,
+    minCredibility: Option[Int] = None,
+    needsReview: Boolean = false,
+    searchTerm: Option[String] = None,
+    sortBy: String = "name",
+    sortOrder: String = "asc"
+  ): Action[AnyContent] = adminAction.async { implicit request =>
+    
+    Future.successful(Ok(Json.obj(
+      "malts" -> Json.arr(),
+      "pagination" -> Json.obj(
+        "currentPage" -> page,
+        "pageSize" -> pageSize,
+        "totalCount" -> 0,
+        "hasNext" -> false
+      )
+    )))
+  }
+
+  def create(): Action[AnyContent] = adminAction.async { implicit request =>
+    Future.successful(BadRequest(Json.obj(
+      "error" -> "Création de malt non implémentée temporairement"
+    )))
+  }
+
+  def detail(
+    id: String,
+    includeAuditLog: Boolean = false,
+    includeSubstitutes: Boolean = true,
+    includeBeerStyles: Boolean = true,
+    includeStatistics: Boolean = false
+  ): Action[AnyContent] = adminAction.async { implicit request =>
+    
+    Future.successful(BadRequest(Json.obj(
+      "error" -> "Détail malt non implémenté temporairement"
+    )))
+  }
+
+  def update(id: String): Action[AnyContent] = adminAction.async { implicit request =>
+    Future.successful(BadRequest(Json.obj(
+      "error" -> "Mise à jour malt non implémentée temporairement"
+    )))
+  }
+
+  def delete(id: String): Action[AnyContent] = adminAction.async { implicit request =>
+    Future.successful(Ok(Json.obj(
+      "success" -> true,
+      "message" -> "Malt supprimé (temporaire)"
+    )))
+  }
+
+  def statistics(): Action[AnyContent] = adminAction.async { implicit request =>
+    Future.successful(Ok(Json.obj(
+      "totalMalts" -> 0,
+      "activeCount" -> 0,
+      "inactiveCount" -> 0,
+      "needsReviewCount" -> 0
+    )))
+  }
+
+  def needsReview(
+    page: Int = 0,
+    pageSize: Int = 20,
+    maxCredibility: Int = 70
+  ): Action[AnyContent] = adminAction.async { implicit request =>
+    
+    Future.successful(BadRequest(Json.obj(
+      "error" -> "Review malts non implémenté temporairement"
+    )))
+  }
+
+  def adjustCredibility(id: String): Action[AnyContent] = adminAction.async { implicit request =>
+    Future.successful(BadRequest(Json.obj(
+      "error" -> "Ajustement credibilité non implémenté temporairement"
+    )))
+  }
+
+  def batchImport(): Action[AnyContent] = adminAction.async { implicit request =>
+    Future.successful(Ok(Json.obj(
+      "success" -> true,
+      "imported" -> 0,
+      "message" -> "Import batch non implémenté temporairement"
+    )))
+  }
+
+  private def adminMaltToJson(malt: AdminMaltReadModel): JsValue = {
+    Json.toJson(malt)
+  }
+}

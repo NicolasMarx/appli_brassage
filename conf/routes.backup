@@ -1,0 +1,32 @@
+# Routes pour l'application de brassage
+
+# Page d'accueil
+GET     /                           controllers.HomeController.index()
+
+# =============================================================================
+# API PUBLIQUE v1 - HOUBLONS
+# =============================================================================
+GET     /api/v1/hops                controllers.api.v1.hops.HopsController.list(page: Int ?= 0, size: Int ?= 20)
+GET     /api/v1/hops/:id            controllers.api.v1.hops.HopsController.detail(id: String)
+POST    /api/v1/hops/search         controllers.api.v1.hops.HopsController.search()
+
+# =============================================================================
+# API ADMIN - HOUBLONS
+# =============================================================================
+GET     /api/admin/hops             controllers.admin.AdminHopsController.list(page: Int ?= 0, size: Int ?= 20)
+POST    /api/admin/hops             controllers.admin.AdminHopsController.create()
+GET     /api/admin/hops/:id         controllers.admin.AdminHopsController.detail(id: String)
+PUT     /api/admin/hops/:id         controllers.admin.AdminHopsController.update(id: String)
+DELETE  /api/admin/hops/:id         controllers.admin.AdminHopsController.delete(id: String)
+
+# =============================================================================
+# API ADMIN - MALTS (routes fonctionnelles uniquement)
+# =============================================================================
+GET     /api/admin/malts                        controllers.admin.AdminMaltsController.getAllMaltsDefault()
+GET     /api/admin/malts/paginated              controllers.admin.AdminMaltsController.getAllMalts(page: Int ?= 0, pageSize: Int ?= 20, activeOnly: Boolean ?= false)
+GET     /api/admin/malts/search                 controllers.admin.AdminMaltsController.searchMalts(query: String, page: Int ?= 0, pageSize: Int ?= 20)
+
+# =============================================================================
+# ASSETS STATIQUES
+# =============================================================================
+GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)

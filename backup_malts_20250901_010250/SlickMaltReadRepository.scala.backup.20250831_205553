@@ -1,0 +1,137 @@
+package infrastructure.persistence.slick.repositories.malts
+
+import domain.malts.model.{MaltAggregate, MaltId}
+import domain.malts.repositories.{MaltReadRepository, MaltSubstitution, MaltCompatibility}
+import domain.common.PagedResult  // ✅ CORRECT IMPORT
+import infrastructure.persistence.slick.tables.MaltTables
+import slick.jdbc.JdbcProfile
+import javax.inject.{Inject, Singleton}
+import scala.concurrent.{ExecutionContext, Future}
+
+@Singleton
+class SlickMaltReadRepository @Inject()(
+  val profile: JdbcProfile
+)(implicit ec: ExecutionContext) extends MaltReadRepository with MaltTables {
+  
+  import profile.api._
+  
+  private val db = Database.forConfig("default")
+  
+  override def findById(id: MaltId): Future[Option[MaltAggregate]] = {
+    val query = malts.filter(_.id === id.value)
+    db.run(query.result.headOption).map(_.flatMap(safeRowToAggregate))
+  }
+  
+  override def findByName(name: String): Future[Option[MaltAggregate]] = {
+    val query = malts.filter(_.name === name)
+    db.run(query.result.headOption).map(_.flatMap(safeRowToAggregate))
+  }
+  
+  override def existsByName(name: String): Future[Boolean] = {
+    val query = malts.filter(_.name === name).exists
+    db.run(query.result)
+  }
+  
+  override def findAll(page: Int = 0, pageSize: Int = 20, activeOnly: Boolean = true): Future[List[MaltAggregate]] = {
+    val query = if (activeOnly) {
+      malts.filter(_.isActive === true)
+    } else {
+      malts
+    }
+    
+    val pagedQuery = query
+      .sortBy(_.name)
+      .drop(page * pageSize)
+      .take(pageSize)
+      
+    db.run(pagedQuery.result).map(_.flatMap(safeRowToAggregate).toList)
+  }
+  
+  override def count(activeOnly: Boolean = true): Future[Long] = {
+    val query = if (activeOnly) {
+      malts.filter(_.isActive === true)
+    } else {
+      malts
+    }
+    db.run(query.length.result).map(_.toLong)
+  }
+  
+  override def findSubstitutes(maltId: MaltId): Future[List[MaltSubstitution]] = {
+    val query = maltSubstitutions.filter(_.maltId === maltId.value)
+    db.run(query.result).map(_.map(row =>
+      MaltSubstitution(
+        id = row.id,
+        maltId = maltId,
+        substituteId = MaltId.fromString(row.substituteId),
+        substituteName = s"Substitute-${row.substituteId}",
+        compatibilityScore = row.qualityScore
+      )
+    ).toList)
+  }
+  
+  // ✅ CORRIGÉ: Utilise domain.common.PagedResult
+  override def findCompatibleWithBeerStyle(beerStyleId: String, page: Int, pageSize: Int): Future[PagedResult[MaltCompatibility]] = {
+    val query = maltBeerStyles.filter(_.beerStyleId === beerStyleId)
+    val pagedQuery = query.drop(page * pageSize).take(pageSize)
+    
+    for {
+      items <- db.run(pagedQuery.result)
+      totalCount <- db.run(query.length.result)
+    } yield {
+      val compatibilities = items.map(row =>
+        MaltCompatibility(
+          maltId = MaltId.fromString(row.maltId),
+          beerStyleId = row.beerStyleId,
+          compatibilityScore = row.compatibilityScore,
+          usageNotes = row.usageNotes.getOrElse("")
+        )
+      ).toList
+      
+      PagedResult(compatibilities, page, pageSize, totalCount.toLong)
+    }
+  }
+  
+  // ✅ CORRIGÉ: Utilise domain.common.PagedResult
+  override def findByFilters(
+    maltType: Option[String] = None,
+    minEBC: Option[Double] = None,
+    maxEBC: Option[Double] = None,
+    originCode: Option[String] = None,
+    status: Option[String] = None,
+    source: Option[String] = None,
+    minCredibility: Option[Double] = None,
+    searchTerm: Option[String] = None,
+    flavorProfiles: List[String] = List.empty,
+    minExtraction: Option[Double] = None,
+    minDiastaticPower: Option[Double] = None,
+    page: Int = 0,
+    pageSize: Int = 20
+  ): Future[PagedResult[MaltAggregate]] = {
+    
+    var query = malts.filter(_.isActive === true)
+    
+    // Appliquer les filtres
+    maltType.foreach(mt => query = query.filter(_.maltType === mt))
+    minEBC.foreach(min => query = query.filter(_.ebcColor >= min))
+    maxEBC.foreach(max => query = query.filter(_.ebcColor <= max))
+    originCode.foreach(code => query = query.filter(_.originCode === code))
+    source.foreach(src => query = query.filter(_.source === src))
+    minCredibility.foreach(min => query = query.filter(_.credibilityScore >= min))
+    minExtraction.foreach(min => query = query.filter(_.extractionRate >= min))
+    minDiastaticPower.foreach(min => query = query.filter(_.diastaticPower >= min))
+    searchTerm.foreach(term => query = query.filter(_.name.like(s"%$term%")))
+    
+    val pagedQuery = query
+      .sortBy(_.name)
+      .drop(page * pageSize)
+      .take(pageSize)
+    
+    for {
+      rows <- db.run(pagedQuery.result)
+      totalCount <- db.run(query.length.result)
+    } yield {
+      val aggregates = rows.flatMap(safeRowToAggregate).toList
+      PagedResult(aggregates, page, pageSize, totalCount.toLong)
+    }
+  }
+}

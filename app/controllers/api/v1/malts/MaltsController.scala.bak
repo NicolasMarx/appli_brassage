@@ -1,0 +1,75 @@
+package interfaces.http.api.v1.malts
+
+import play.api.mvc._
+import play.api.libs.json._
+import interfaces.http.common.BaseController
+import application.queries.public.malts.readmodels.MaltReadModel
+
+import javax.inject.{Inject, Singleton}
+import scala.concurrent.{ExecutionContext, Future}
+
+@Singleton
+class MaltsController @Inject()(
+  val controllerComponents: ControllerComponents
+)(implicit ec: ExecutionContext) extends BaseController {
+
+  def list(
+    page: Int = 0,
+    pageSize: Int = 20,
+    maltType: Option[String] = None,
+    minEBC: Option[Double] = None,
+    maxEBC: Option[Double] = None,
+    originCode: Option[String] = None,
+    activeOnly: Boolean = true
+  ): Action[AnyContent] = Action.async { implicit request =>
+    
+    Future.successful(BadRequest(Json.obj(
+      "error" -> "Liste malts non implémentée temporairement"
+    )))
+  }
+
+  def detail(
+    id: String,
+    includeSubstitutes: Boolean = false,
+    includeBeerStyles: Boolean = false
+  ): Action[AnyContent] = Action.async { implicit request =>
+    
+    Future.successful(NotFound(Json.obj(
+      "error" -> "Malt non trouvé"
+    )))
+  }
+
+  def search(): Action[AnyContent] = Action.async { implicit request =>
+    Future.successful(Ok(Json.obj(
+      "results" -> Json.arr(),
+      "totalCount" -> 0
+    )))
+  }
+
+  def types(): Action[AnyContent] = Action { implicit request =>
+    Ok(Json.obj(
+      "types" -> Json.arr(
+        Json.obj("code" -> "BASE", "name" -> "Malt de base"),
+        Json.obj("code" -> "SPECIALTY", "name" -> "Malt spécial"),
+        Json.obj("code" -> "CRYSTAL", "name" -> "Malt crystal"),
+        Json.obj("code" -> "ROASTED", "name" -> "Malt torréfié")
+      )
+    ))
+  }
+
+  def colors(): Action[AnyContent] = Action { implicit request =>
+    Ok(Json.obj(
+      "ranges" -> Json.arr(
+        Json.obj("min" -> 0, "max" -> 10, "name" -> "Très clair"),
+        Json.obj("min" -> 10, "max" -> 30, "name" -> "Clair"),
+        Json.obj("min" -> 30, "max" -> 100, "name" -> "Ambre"),
+        Json.obj("min" -> 100, "max" -> 300, "name" -> "Brun"),
+        Json.obj("min" -> 300, "max" -> 1000, "name" -> "Noir")
+      )
+    ))
+  }
+
+  private def maltToJson(malt: MaltReadModel): JsValue = {
+    Json.toJson(malt)
+  }
+}

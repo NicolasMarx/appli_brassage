@@ -4,6 +4,8 @@ import com.google.inject.AbstractModule
 import domain.hops.repositories.{HopReadRepository, HopWriteRepository}
 import infrastructure.persistence.slick.repositories.hops.{SlickHopReadRepository, SlickHopWriteRepository}
 
+// Import repositories malts
+
 /**
  * Bindings Guice - Connecte les interfaces du domaine aux implémentations Slick
  */
@@ -14,10 +16,7 @@ final class BindingsModule extends AbstractModule {
     bind(classOf[HopReadRepository]).to(classOf[SlickHopReadRepository])
     bind(classOf[HopWriteRepository]).to(classOf[SlickHopWriteRepository])
 
-    // TODO: Ajouter les autres repositories quand ils seront prêts
-    // bind(classOf[AdminReadRepository]).to(classOf[SlickAdminReadRepository])
-    // bind(classOf[AdminWriteRepository]).to(classOf[SlickAdminWriteRepository])
 
-    println("BindingsModule chargé - Repositories connectés à PostgreSQL")
+    println("BindingsModule chargé - Repositories Hops et Malts connectés à PostgreSQL")
   }
 }
