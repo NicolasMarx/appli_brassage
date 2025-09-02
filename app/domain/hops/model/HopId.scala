@@ -1,5 +1,7 @@
 package domain.hops.model
 
+import play.api.libs.json._
+
 /**
  * Value Object représentant l'identifiant unique d'un houblon
  */
@@ -37,6 +39,11 @@ object HopId {
       case e: Exception => Left(s"Invalid HopId: ${e.getMessage}")
     }
   }
+  
+  /**
+   * Version unsafe pour les cas où on a déjà validé la donnée
+   */
+  def unsafe(value: String): HopId = new HopId(value)
 
   /**
    * Crée un HopId en format slug à partir d'un nom de houblon
@@ -103,4 +110,6 @@ object HopId {
     val cleaned = path.split("/").lastOption.getOrElse(path)
     create(cleaned).toOption
   }
+
+  implicit val format: Format[HopId] = Json.valueFormat[HopId]
 }

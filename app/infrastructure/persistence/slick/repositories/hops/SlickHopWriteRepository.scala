@@ -112,7 +112,7 @@ class SlickHopWriteRepository @Inject()(
         HopOrigin(row.originCode, row.originCode, "Unknown")
       )
 
-      val usage = HopUsage.fromString(row.usage)
+      val usage = HopUsage.fromString(row.usage).getOrElse(HopUsage.DualPurpose)
       val status = HopStatus.fromString(row.status)
       val source = HopSource.fromString(row.source)
 

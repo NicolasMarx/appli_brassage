@@ -17,17 +17,20 @@ class DeleteMaltCommandHandler @Inject()(
 )(implicit ec: ExecutionContext) {
 
   def handle(command: DeleteMaltCommand): Future[Either[DomainError, Unit]] = {
-    val maltId = MaltId.fromString(command.id)
-    
-    for {
-      maltOpt <- maltReadRepo.findById(maltId)
-      result <- maltOpt match {
-        case Some(_) => 
-          // TODO: Implémenter la suppression complète
-          Future.successful(Right(()))
-        case None => 
-          Future.successful(Left(DomainError.notFound("Malt", command.id)))
-      }
-    } yield result
+    MaltId.fromString(command.id) match {
+      case Right(maltId) =>
+        for {
+          maltOpt <- maltReadRepo.findById(maltId)
+          result <- maltOpt match {
+            case Some(_) => 
+              // TODO: Implémenter la suppression complète
+              Future.successful(Right(()))
+            case None => 
+              Future.successful(Left(DomainError.notFound("Malt", command.id)))
+          }
+        } yield result
+      case Left(error) =>
+        Future.successful(Left(DomainError.validation(error)))
+    }
   }
 }

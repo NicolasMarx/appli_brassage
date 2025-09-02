@@ -1,0 +1,1003 @@
+openapi: 3.0.3
+info:
+  title: Brewing Platform - Yeasts API
+  description: |
+    API pour la gestion des levures de brassage
+    
+    Cette API fournit des endpoints pour :
+    - **API Publique** : Consultation des levures actives, recommandations
+    - **API Admin** : Gestion complète CRUD des levures (authentification requise)
+    
+    ## Authentification
+    
+    L'API Admin nécessite une authentification via token JWT dans le header :
+    ```
+    Authorization: Bearer <token>
+    ```
+    
+    ## Permissions requises
+    
+    - `MANAGE_INGREDIENTS` : Création, modification, suppression des levures
+    - `VIEW_ANALYTICS` : Accès aux statistiques détaillées
+    
+  version: 1.0.0
+  contact:
+    name: Brewing Platform API
+    email: api@brewery.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:9000/api
+    description: Serveur de développement
+  - url: https://api.brewery.com/api
+    description: Serveur de production
+
+tags:
+  - name: Public Yeasts
+    description: API publique pour consulter les levures
+  - name: Public Recommendations
+    description: Recommandations de levures publiques
+  - name: Admin Yeasts
+    description: API admin pour gérer les levures
+  - name: Admin Statistics
+    description: Statistiques et analytics admin
+
+paths:
+  # =============================================================================
+  # API PUBLIQUE
+  # =============================================================================
+  
+  /v1/yeasts:
+    get:
+      tags: [Public Yeasts]
+      summary: Liste des levures actives
+      description: Récupère la liste paginée des levures actives avec filtres optionnels
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: name
+          in: query
+          schema:
+            type: string
+          description: Filtrer par nom de levure
+        - name: laboratory
+          in: query
+          schema:
+            type: string
+          description: Filtrer par laboratoire
+        - name: yeastType
+          in: query
+          schema:
+            type: string
+            enum: [Ale, Lager, Wheat, Saison, Wild, Sour, Champagne, Kveik]
+      responses:
+        '200':
+          description: Liste des levures récupérée avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YeastPageResponse'
+        '400':
+          description: Paramètres de requête invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/yeasts/{yeastId}:
+    get:
+      tags: [Public Yeasts]
+      summary: Détails d'une levure
+      description: Récupère les détails complets d'une levure par son ID
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Détails de la levure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YeastDetailResponse'
+        '404':
+          description: Levure non trouvée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/yeasts/search:
+    get:
+      tags: [Public Yeasts]
+      summary: Recherche textuelle de levures
+      description: Recherche de levures par nom, souche ou caractéristiques
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 100
+          description: Terme de recherche
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Résultats de recherche
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/YeastSummary'
+
+  /v1/yeasts/recommendations/beginner:
+    get:
+      tags: [Public Recommendations]
+      summary: Recommandations pour débutants
+      description: Levures recommandées pour les brasseurs débutants
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 5
+      responses:
+        '200':
+          description: Recommandations pour débutants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/YeastRecommendation'
+
+  /v1/yeasts/recommendations/style/{style}:
+    get:
+      tags: [Public Recommendations]
+      summary: Recommandations par style de bière
+      description: Levures recommandées pour un style de bière spécifique
+      parameters:
+        - name: style
+          in: path
+          required: true
+          schema:
+            type: string
+          examples:
+            ipa:
+              value: "American IPA"
+            lager:
+              value: "Czech Pilsner"
+        - name: targetAbv
+          in: query
+          schema:
+            type: number
+            minimum: 0
+            maximum: 20
+          description: ABV cible en pourcentage
+        - name: fermentationTemp
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 50
+          description: Température de fermentation en Celsius
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 15
+            default: 10
+      responses:
+        '200':
+          description: Recommandations pour le style
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/YeastRecommendation'
+
+  # =============================================================================
+  # API ADMIN
+  # =============================================================================
+  
+  /admin/yeasts:
+    get:
+      tags: [Admin Yeasts]
+      summary: Liste admin des levures
+      description: Liste complète des levures avec tous les statuts (admin uniquement)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, DISCONTINUED, DRAFT, ARCHIVED]
+      responses:
+        '200':
+          description: Liste des levures (admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YeastPageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    
+    post:
+      tags: [Admin Yeasts]
+      summary: Créer une nouvelle levure
+      description: Création d'une nouvelle levure (admin uniquement)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateYeastRequest'
+      responses:
+        '201':
+          description: Levure créée avec succès
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YeastDetailResponse'
+        '400':
+          description: Données invalides
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /admin/yeasts/{yeastId}:
+    get:
+      tags: [Admin Yeasts]
+      summary: Détails admin d'une levure
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Détails complets de la levure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YeastDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    
+    put:
+      tags: [Admin Yeasts]
+      summary: Mettre à jour une levure
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateYeastRequest'
+      responses:
+        '200':
+          description: Levure mise à jour
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YeastDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    
+    delete:
+      tags: [Admin Yeasts]
+      summary: Supprimer une levure
+      description: Suppression logique (archivage) d'une levure
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  description: Raison de la suppression
+      responses:
+        '200':
+          description: Levure supprimée avec succès
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Non authentifié
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Permission insuffisante
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Ressource non trouvée
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+    YeastSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        laboratory:
+          type: string
+        strain:
+          type: string
+        yeastType:
+          type: string
+          enum: [Ale, Lager, Wheat, Saison, Wild, Sour, Champagne, Kveik]
+        attenuationRange:
+          type: string
+          example: "75-82%"
+        temperatureRange:
+          type: string
+          example: "18-22°C"
+        alcoholTolerance:
+          type: string
+          example: "9.0%"
+        flocculation:
+          type: string
+          enum: [Low, Medium, Medium-High, High, Very High]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, DISCONTINUED, DRAFT, ARCHIVED]
+        mainCharacteristics:
+          type: array
+          items:
+            type: string
+      required: [id, name, laboratory, strain, yeastType, status]
+
+    YeastDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/YeastSummary'
+        - type: object
+          properties:
+            laboratory:
+              $ref: '#/components/schemas/YeastLaboratory'
+            yeastType:
+              $ref: '#/components/schemas/YeastType'
+            attenuation:
+              $ref: '#/components/schemas/AttenuationRange'
+            temperature:
+              $ref: '#/components/schemas/FermentationTemp'
+            alcoholTolerance:
+              $ref: '#/components/schemas/AlcoholTolerance'
+            flocculation:
+              $ref: '#/components/schemas/FlocculationLevel'
+            characteristics:
+              $ref: '#/components/schemas/YeastCharacteristics'
+            version:
+              type: integer
+              format: int64
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            recommendations:
+              type: array
+              items:
+                type: string
+            warnings:
+              type: array
+              items:
+                type: string
+
+    YeastPageResponse:
+      type: object
+      properties:
+        yeasts:
+          type: array
+          items:
+            $ref: '#/components/schemas/YeastSummary'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+      required: [yeasts, pagination]
+
+    YeastRecommendation:
+      type: object
+      properties:
+        yeast:
+          $ref: '#/components/schemas/YeastSummary'
+        score:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+        reason:
+          type: string
+        tips:
+          type: array
+          items:
+            type: string
+      required: [yeast, score, reason, tips]
+
+    CreateYeastRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        laboratory:
+          type: string
+        strain:
+          type: string
+          pattern: '^[A-Z0-9-]{1,20}Components())
+      
+      val createRequest = CreateYeastRequestDTO(
+        name = "Test Yeast",
+        laboratory = "Fermentis",
+        strain = "S-04",
+        yeastType = "Ale",
+        attenuationMin = 75,
+        attenuationMax = 82,
+        temperatureMin = 15,
+        temperatureMax = 24,
+        alcoholTolerance = 9.0,
+        flocculation = "High"
+      )
+      
+      val mockYeast = createMockYeastDetail()
+      val mockAdmin = createMockAdmin()
+      
+      when(mockApplicationService.createYeast(any[CreateYeastRequestDTO], any[UUID]))
+        .thenReturn(Future.successful(Right(mockYeast)))
+      
+      // Mock AdminAction behavior
+      when(mockAdminAction.async(any[Permission], any)(any))
+        .thenAnswer { invocation =>
+          val action = invocation.getArgument[AdminAction.AdminRequest[AnyContentAsJson] => Future[Result]](2)
+          val adminRequest = new AdminAction.AdminRequest(
+            admin = mockAdmin,
+            request = FakeRequest(POST, "/api/admin/yeasts").withJsonBody(Json.toJson(createRequest))
+          )
+          action(adminRequest)
+        }
+      
+      val request: FakeRequest[JsValue] = FakeRequest(POST, "/api/admin/yeasts")
+        .withJsonBody(Json.toJson(createRequest))
+        .withHeaders("Content-Type" -> "application/json")
+      
+      val result: Future[Result] = controller.createYeast()(request)
+      
+      status(result) shouldBe CREATED
+      contentType(result) shouldBe Some("application/json")
+    }
+    
+    "return validation errors for invalid create data" in {
+      val mockApplicationService = mock[YeastApplicationService]
+      val mockAdminAction = mock[AdminAction]
+      val controller = new YeastAdminController(mockApplicationService, mockAdminAction, stubControllerComponents())
+      
+      val invalidRequest = Json.obj(
+        "name" -> "", // Nom vide = invalide
+        "laboratory" -> "Fermentis",
+        "strain" -> "S-04"
+        // Champs requis manquants
+      )
+      
+      val mockAdmin = createMockAdmin()
+      
+      // Mock AdminAction behavior
+      when(mockAdminAction.async(any[Permission], any)(any))
+        .thenAnswer { invocation =>
+          val action = invocation.getArgument[AdminAction.AdminRequest[AnyContentAsJson] => Future[Result]](2)
+          val adminRequest = new AdminAction.AdminRequest(
+            admin = mockAdmin,
+            request = FakeRequest(POST, "/api/admin/yeasts").withJsonBody(invalidRequest)
+          )
+          action(adminRequest)
+        }
+      
+      val request: FakeRequest[JsValue] = FakeRequest(POST, "/api/admin/yeasts")
+        .withJsonBody(invalidRequest)
+        .withHeaders("Content-Type" -> "application/json")
+      
+      val result: Future[Result] = controller.createYeast()(request)
+      
+      status(result) shouldBe BAD_REQUEST
+      val json = contentAsJson(result)
+      (json \ "errors").as[List[String]] should not be empty
+    }
+    
+    "update yeast with valid data" in {
+      val mockApplicationService = mock[YeastApplicationService]
+      val mockAdminAction = mock[AdminAction]
+      val controller = new YeastAdminController(mockApplicationService, mockAdminAction, stubControllerComponents())
+      
+      val yeastId = UUID.randomUUID()
+      val updateRequest = UpdateYeastRequestDTO(
+        name = Some("Updated Yeast Name")
+      )
+      
+      val mockYeast = createMockYeastDetail()
+      val mockAdmin = createMockAdmin()
+      
+      when(mockApplicationService.updateYeast(any[UUID], any[UpdateYeastRequestDTO], any[UUID]))
+        .thenReturn(Future.successful(Right(mockYeast)))
+      
+      // Mock AdminAction behavior
+      when(mockAdminAction.async(any[Permission], any)(any))
+        .thenAnswer { invocation =>
+          val action = invocation.getArgument[AdminAction.AdminRequest[AnyContentAsJson] => Future[Result]](2)
+          val adminRequest = new AdminAction.AdminRequest(
+            admin = mockAdmin,
+            request = FakeRequest(PUT, s"/api/admin/yeasts/$yeastId").withJsonBody(Json.toJson(updateRequest))
+          )
+          action(adminRequest)
+        }
+      
+      val request: FakeRequest[JsValue] = FakeRequest(PUT, s"/api/admin/yeasts/$yeastId")
+        .withJsonBody(Json.toJson(updateRequest))
+        .withHeaders("Content-Type" -> "application/json")
+      
+      val result: Future[Result] = controller.updateYeast(yeastId.toString)(request)
+      
+      status(result) shouldBe OK
+      contentType(result) shouldBe Some("application/json")
+    }
+    
+    "change yeast status" in {
+      val mockApplicationService = mock[YeastApplicationService]
+      val mockAdminAction = mock[AdminAction]
+      val controller = new YeastAdminController(mockApplicationService, mockAdminAction, stubControllerComponents())
+      
+      val yeastId = UUID.randomUUID()
+      val statusRequest = ChangeStatusRequestDTO(
+        status = "ACTIVE",
+        reason = Some("Activation for production")
+      )
+      
+      val mockAdmin = createMockAdmin()
+      
+      when(mockApplicationService.changeYeastStatus(any[UUID], any[ChangeStatusRequestDTO], any[UUID]))
+        .thenReturn(Future.successful(Right(())))
+      
+      // Mock AdminAction behavior
+      when(mockAdminAction.async(any[Permission], any)(any))
+        .thenAnswer { invocation =>
+          val action = invocation.getArgument[AdminAction.AdminRequest[AnyContentAsJson] => Future[Result]](2)
+          val adminRequest = new AdminAction.AdminRequest(
+            admin = mockAdmin,
+            request = FakeRequest(PUT, s"/api/admin/yeasts/$yeastId/status").withJsonBody(Json.toJson(statusRequest))
+          )
+          action(adminRequest)
+        }
+      
+      val request: FakeRequest[JsValue] = FakeRequest(PUT, s"/api/admin/yeasts/$yeastId/status")
+        .withJsonBody(Json.toJson(statusRequest))
+        .withHeaders("Content-Type" -> "application/json")
+      
+      val result: Future[Result] = controller.changeStatus(yeastId.toString)(request)
+      
+      status(result) shouldBe OK
+    }
+    
+    "delete yeast" in {
+      val mockApplicationService = mock[YeastApplicationService]
+      val mockAdminAction = mock[AdminAction]
+      val controller = new YeastAdminController(mockApplicationService, mockAdminAction, stubControllerComponents())
+      
+      val yeastId = UUID.randomUUID()
+      val deleteRequest = Json.obj("reason" -> "No longer needed")
+      
+      val mockAdmin = createMockAdmin()
+      
+      when(mockApplicationService.deleteYeast(any[UUID], any[String], any[UUID]))
+        .thenReturn(Future.successful(Right(())))
+      
+      // Mock AdminAction behavior
+      when(mockAdminAction.async(any[Permission], any)(any))
+        .thenAnswer { invocation =>
+          val action = invocation.getArgument[AdminAction.AdminRequest[AnyContentAsJson] => Future[Result]](2)
+          val adminRequest = new AdminAction.AdminRequest(
+            admin = mockAdmin,
+            request = FakeRequest(DELETE, s"/api/admin/yeasts/$yeastId").withJsonBody(deleteRequest)
+          )
+          action(adminRequest)
+        }
+      
+      val request: FakeRequest[JsValue] = FakeRequest(DELETE, s"/api/admin/yeasts/$yeastId")
+        .withJsonBody(deleteRequest)
+        .withHeaders("Content-Type" -> "application/json")
+      
+      val result: Future[Result] = controller.deleteYeast(yeastId.toString)(request)
+      
+      status(result) shouldBe OK
+    }
+    
+    "handle batch create" in {
+      val mockApplicationService = mock[YeastApplicationService]
+      val mockAdminAction = mock[AdminAction]
+      val controller = new YeastAdminController(mockApplicationService, mockAdminAction, stubControllerComponents())
+      
+      val batchRequest = List(
+        CreateYeastRequestDTO(
+          name = "Batch Yeast 1",
+          laboratory = "Fermentis",
+          strain = "S-04",
+          yeastType = "Ale",
+          attenuationMin = 75,
+          attenuationMax = 82,
+          temperatureMin = 15,
+          temperatureMax = 24,
+          alcoholTolerance = 9.0,
+          flocculation = "High"
+        ),
+        CreateYeastRequestDTO(
+          name = "Batch Yeast 2",
+          laboratory = "Wyeast",
+          strain = "1056",
+          yeastType = "Ale",
+          attenuationMin = 73,
+          attenuationMax = 77,
+          temperatureMin = 18,
+          temperatureMax = 22,
+          alcoholTolerance = 10.0,
+          flocculation = "Medium"
+        )
+      )
+      
+      val mockYeasts = List(createMockYeastDetail(), createMockYeastDetail())
+      val mockAdmin = createMockAdmin()
+      
+      when(mockApplicationService.createYeastsBatch(any[List[CreateYeastRequestDTO]], any[UUID]))
+        .thenReturn(Future.successful(Right(mockYeasts)))
+      
+      // Mock AdminAction behavior
+      when(mockAdminAction.async(any[Permission], any)(any))
+        .thenAnswer { invocation =>
+          val action = invocation.getArgument[AdminAction.AdminRequest[AnyContentAsJson] => Future[Result]](2)
+          val adminRequest = new AdminAction.AdminRequest(
+            admin = mockAdmin,
+            request = FakeRequest(POST, "/api/admin/yeasts/batch").withJsonBody(Json.toJson(batchRequest))
+          )
+          action(adminRequest)
+        }
+      
+      val request: FakeRequest[JsValue] = FakeRequest(POST, "/api/admin/yeasts/batch")
+        .withJsonBody(Json.toJson(batchRequest))
+        .withHeaders("Content-Type" -> "application/json")
+      
+      val result: Future[Result] = controller.batchCreate()(request)
+      
+      status(result) shouldBe OK
+      val json = contentAsJson(result)
+      (json \ "yeasts").as[List[JsValue]] should have length 2
+    }
+    
+    "get statistics" in {
+      val mockApplicationService = mock[YeastApplicationService]
+      val mockAdminAction = mock[AdminAction]
+      val controller = new YeastAdminController(mockApplicationService, mockAdminAction, stubController
+        yeastType:
+          type: string
+          enum: [Ale, Lager, Wheat, Saison, Wild, Sour, Champagne, Kveik]
+        attenuationMin:
+          type: integer
+          minimum: 30
+          maximum: 100
+        attenuationMax:
+          type: integer
+          minimum: 30
+          maximum: 100
+        temperatureMin:
+          type: integer
+          minimum: 0
+          maximum: 50
+        temperatureMax:
+          type: integer
+          minimum: 0
+          maximum: 50
+        alcoholTolerance:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 20
+        flocculation:
+          type: string
+          enum: [Low, Medium, Medium-High, High, Very High]
+        aromaProfile:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        flavorProfile:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+        notes:
+          type: string
+          maxLength: 500
+      required: [name, laboratory, strain, yeastType, attenuationMin, attenuationMax, temperatureMin, temperatureMax, alcoholTolerance, flocculation]
+
+    UpdateYeastRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        laboratory:
+          type: string
+        strain:
+          type: string
+        attenuationMin:
+          type: integer
+          minimum: 30
+          maximum: 100
+        attenuationMax:
+          type: integer
+          minimum: 30
+          maximum: 100
+        temperatureMin:
+          type: integer
+          minimum: 0
+          maximum: 50
+        temperatureMax:
+          type: integer
+          minimum: 0
+          maximum: 50
+        alcoholTolerance:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 20
+        flocculation:
+          type: string
+          enum: [Low, Medium, Medium-High, High, Very High]
+        aromaProfile:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+          maxLength: 500
+
+    YeastLaboratory:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+      required: [name, code, description]
+
+    YeastType:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        temperatureRange:
+          type: string
+        characteristics:
+          type: string
+      required: [name, description]
+
+    AttenuationRange:
+      type: object
+      properties:
+        min:
+          type: integer
+        max:
+          type: integer
+        average:
+          type: number
+          format: double
+        display:
+          type: string
+      required: [min, max, average, display]
+
+    FermentationTemp:
+      type: object
+      properties:
+        min:
+          type: integer
+        max:
+          type: integer
+        average:
+          type: number
+          format: double
+        display:
+          type: string
+        fahrenheit:
+          type: string
+      required: [min, max, average, display, fahrenheit]
+
+    AlcoholTolerance:
+      type: object
+      properties:
+        percentage:
+          type: number
+          format: double
+        display:
+          type: string
+        level:
+          type: string
+      required: [percentage, display, level]
+
+    FlocculationLevel:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        clarificationTime:
+          type: string
+        rackingRecommendation:
+          type: string
+      required: [name, description]
+
+    YeastCharacteristics:
+      type: object
+      properties:
+        aromaProfile:
+          type: array
+          items:
+            type: string
+        flavorProfile:
+          type: array
+          items:
+            type: string
+        esters:
+          type: array
+          items:
+            type: string
+        phenols:
+          type: array
+          items:
+            type: string
+        otherCompounds:
+          type: array
+          items:
+            type: string
+        notes:
+          type: string
+        summary:
+          type: string
+      required: [aromaProfile, flavorProfile, summary]
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          minimum: 0
+        size:
+          type: integer
+          minimum: 1
+        totalCount:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int64
+          minimum: 0
+        hasNextPage:
+          type: boolean
+        hasPreviousPage:
+          type: boolean
+      required: [page, size, totalCount, totalPages, hasNextPage, hasPreviousPage]
+
+    ErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+        timestamp:
+          type: string
+          format: date-time
+      required: [errors, timestamp]

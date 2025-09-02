@@ -16,24 +16,33 @@ case class MaltId private(value: UUID) extends AnyVal {
 object MaltId {
   def generate(): MaltId = MaltId(UUID.randomUUID())
   
-  def fromString(id: String): MaltId = {
-    MaltId(UUID.fromString(id))
+  def fromString(id: String): Either[String, MaltId] = {
+    try {
+      Right(MaltId(UUID.fromString(id)))
+    } catch {
+      case _: IllegalArgumentException => Left(s"ID de malt invalide: $id")
+    }
   }
   
   // Méthode unsafe pour les cas d'erreur
   def unsafe(id: String): MaltId = {
     try {
-      fromString(id)
+      fromString(id).getOrElse(generate())
     } catch {
       case _: IllegalArgumentException => generate() // Génère un nouvel ID si l'UUID est invalide
     }
   }
   
   def apply(uuid: UUID): MaltId = new MaltId(uuid)
-  def apply(id: String): MaltId = fromString(id)
+  def apply(id: String): MaltId = unsafe(id)
   
   implicit val format: Format[MaltId] = Format(
-    Reads(js => js.validate[String].map(fromString)),
+    Reads(js => js.validate[String].flatMap { id =>
+      fromString(id) match {
+        case Right(maltId) => JsSuccess(maltId)
+        case Left(error) => JsError(error)
+      }
+    }),
     Writes(maltId => JsString(maltId.toString))
   )
 }

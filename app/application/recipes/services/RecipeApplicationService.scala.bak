@@ -1,0 +1,294 @@
+package application.recipes.services
+
+import javax.inject._
+import play.api.libs.json._
+import scala.concurrent.{ExecutionContext, Future}
+import java.util.UUID
+import scala.util.{Try, Success, Failure}
+
+import domain.recipes.model._
+import domain.recipes.repositories.RecipeRepository
+import domain.recipes.services.{RecipeValidationService, RecipeCalculationService}
+import domain.hops.repositories.HopReadRepository
+import domain.hops.model.HopId
+import domain.malts.repositories.MaltReadRepository
+import domain.malts.model.MaltId
+import domain.yeasts.repositories.YeastReadRepository
+import domain.yeasts.model.YeastId
+import application.recipes.commands._
+import application.recipes.dtos._
+
+object EitherOps {
+  implicit class EitherToTry[A, B](either: Either[A, B]) {
+    def toTry: Try[B] = either match {
+      case Right(value) => Success(value)
+      case Left(error) => Failure(new RuntimeException(error.toString))
+    }
+  }
+}
+
+@Singleton
+class RecipeApplicationService @Inject()(
+  recipeRepository: RecipeRepository,
+  recipeValidationService: RecipeValidationService,
+  recipeCalculationService: RecipeCalculationService,
+  hopRepository: HopReadRepository,
+  maltRepository: MaltReadRepository,
+  yeastRepository: YeastReadRepository
+)(implicit ec: ExecutionContext) {
+  
+  import EitherOps._
+  
+  def createRecipe(command: CreateRecipeCommand): Future[Either[List[String], RecipeAggregate]] = {
+    for {
+      // 1. Validation command
+      _ <- Future.fromTry(command.validate().toTry)
+      
+      // 2. Construction Value Objects
+      recipeName <- Future.fromTry(RecipeName.create(command.name).toTry)
+      recipeDescription <- Future.fromTry(
+        command.description.map(RecipeDescription.create).getOrElse(Right(None)).map(Some.apply).toTry
+      )
+      beerStyle <- Future.fromTry(
+        BeerStyle.create(command.styleId, command.styleName, command.styleCategory).toTry
+      )
+      batchSize <- Future.fromTry((
+        for {
+          unit <- VolumeUnit.fromString(command.batchSizeUnit)
+          size <- BatchSize.create(command.batchSizeValue, unit)
+        } yield size
+      ).toTry)
+      
+      // 3. Construction agrégat de base
+      userId = UserId.generate() // TODO: Récupérer depuis auth context
+      baseRecipe = RecipeAggregate.create(recipeName, recipeDescription, beerStyle, batchSize, userId)
+      
+      // 4. Ajout ingrédients si fournis
+      recipeWithIngredients <- addIngredientsToRecipe(baseRecipe, command)
+      
+      // 5. Validation métier domaine
+      _ <- recipeValidationService.validateRecipeCreation(recipeWithIngredients)
+      
+      // 6. Calculs automatiques
+      recipeWithCalculations = recipeCalculationService.calculateAll(recipeWithIngredients)
+      
+      // 7. Persistence
+      result <- recipeRepository.save(recipeWithCalculations)
+      
+    } yield result
+  }
+
+  private def addIngredientsToRecipe(recipe: RecipeAggregate, command: CreateRecipeCommand): Future[RecipeAggregate] = {
+    for {
+      // Ajout houblons
+      recipeWithHops <- addHopsToRecipe(recipe, command.hops)
+      
+      // Ajout malts
+      recipeWithMalts <- addMaltsToRecipe(recipeWithHops, command.malts)
+      
+      // Ajout levure si fournie
+      finalRecipe <- command.yeastId match {
+        case Some(yeastIdStr) => addYeastToRecipe(recipeWithMalts, yeastIdStr)
+        case None => Future.successful(recipeWithMalts)
+      }
+      
+    } yield finalRecipe
+  }
+
+  private def addHopsToRecipe(recipe: RecipeAggregate, hopCommands: List[CreateRecipeHopCommand]): Future[RecipeAggregate] = {
+    Future.sequence(hopCommands.map { hopCommand =>
+      for {
+        _ <- Future.fromTry(hopCommand.validate().toTry)
+        hopId = HopId.fromString(hopCommand.hopId)
+        usage <- Future.fromTry(HopUsage.fromString(hopCommand.usage).toTry)
+      } yield RecipeHop(hopId, hopCommand.quantityGrams, hopCommand.additionTime, usage)
+    }).map { hops =>
+      hops.foldLeft(recipe) { (acc, hop) =>
+        acc.addHop(hop) match {
+          case Right(updatedRecipe) => updatedRecipe
+          case Left(_) => acc // Ignore duplicates pour l'instant
+        }
+      }
+    }
+  }
+
+  private def addMaltsToRecipe(recipe: RecipeAggregate, maltCommands: List[CreateRecipeMaltCommand]): Future[RecipeAggregate] = {
+    Future.sequence(maltCommands.map { maltCommand =>
+      for {
+        _ <- Future.fromTry(maltCommand.validate().toTry)
+        maltId = MaltId.fromString(maltCommand.maltId)
+      } yield RecipeMalt(maltId, maltCommand.quantityKg, maltCommand.percentage)
+    }).map { malts =>
+      malts.foldLeft(recipe) { (acc, malt) =>
+        acc.addMalt(malt) match {
+          case Right(updatedRecipe) => updatedRecipe
+          case Left(_) => acc // Ignore duplicates pour l'instant
+        }
+      }
+    }
+  }
+
+  private def addYeastToRecipe(recipe: RecipeAggregate, yeastIdStr: String): Future[RecipeAggregate] = {
+    YeastId.fromString(yeastIdStr) match {
+      case Right(yeastId) =>
+        val recipeYeast = RecipeYeast(yeastId, 11.5) // Quantité par défaut
+        Future.successful(recipe.setYeast(recipeYeast))
+      case Left(error) =>
+        Future.failed(new IllegalArgumentException(error))
+    }
+  }
+  
+  def getRecipeById(id: RecipeId): Future[Option[RecipeAggregate]] = {
+    recipeRepository.findById(id)
+  }
+  
+  def updateRecipe(command: UpdateRecipeCommand): Future[Either[List[String], RecipeAggregate]] = {
+    for {
+      // 1. Validation command
+      _ <- Future.fromTry(command.validate().toTry)
+      
+      // 2. Récupération recette existante
+      recipeId <- Future.fromTry(RecipeId.fromString(command.recipeId).toTry)
+      existingRecipeOpt <- recipeRepository.findById(recipeId)
+      existingRecipe <- Future.fromTry(
+        existingRecipeOpt.toRight("Recette non trouvée").toTry
+      )
+      
+      // 3. Application des modifications
+      updatedRecipe <- applyUpdates(existingRecipe, command)
+      
+      // 4. Recalculs si nécessaire
+      recipeWithCalculations = recipeCalculationService.recalculateIfNeeded(updatedRecipe)
+      
+      // 5. Persistence
+      result <- recipeRepository.update(recipeWithCalculations)
+      
+    } yield result
+  }
+
+  private def applyUpdates(recipe: RecipeAggregate, command: UpdateRecipeCommand): Future[RecipeAggregate] = {
+    Future.successful {
+      var updated = recipe
+      
+      command.name.foreach { name =>
+        RecipeName.create(name) match {
+          case Right(recipeName) => updated = updated.copy(name = recipeName)
+          case Left(_) => // Ignore si invalide
+        }
+      }
+      
+      command.description.foreach { desc =>
+        RecipeDescription.create(desc) match {
+          case Right(description) => updated = updated.copy(description = Some(description))
+          case Left(_) => // Ignore si invalide
+        }
+      }
+      
+      // TODO: Autres champs (style, batchSize, etc.)
+      
+      updated.copy(version = updated.version + 1)
+    }
+  }
+  
+  def deleteRecipe(command: DeleteRecipeCommand): Future[Either[String, Unit]] = {
+    for {
+      // 1. Validation
+      _ <- Future.fromTry(command.validate().toTry.map(_ => ()))
+      
+      // 2. Conversion ID
+      recipeId <- Future.fromTry(RecipeId.fromString(command.recipeId).toTry)
+      
+      // 3. Vérification existence
+      exists <- recipeRepository.exists(recipeId)
+      _ <- if (!exists) Future.failed(new RuntimeException("Recette non trouvée")) else Future.unit
+      
+      // 4. Suppression
+      result <- recipeRepository.delete(recipeId)
+      
+    } yield result
+  }
+  
+  def findRecipes(search: RecipeSearchRequestDTO): Future[Either[List[String], RecipeListResponseDTO]] = {
+    val filter = RecipeFilter(
+      name = search.name,
+      style = search.style,
+      status = search.status.flatMap(RecipeStatus.fromString(_).toOption),
+      minAbv = search.minAbv,
+      maxAbv = search.maxAbv,
+      minIbu = search.minIbu,
+      maxIbu = search.maxIbu,
+      minSrm = search.minSrm,
+      maxSrm = search.maxSrm,
+      page = search.page,
+      size = search.size
+    )
+    
+    for {
+      recipes <- recipeRepository.findAll(filter)
+      totalCount <- recipeRepository.count(filter)
+    } yield {
+      val response = RecipeListResponseDTO(
+        recipes = recipes.map(RecipeResponseDTO.fromAggregate),
+        totalCount = totalCount,
+        page = search.page,
+        size = search.size,
+        hasNext = (search.page + 1) * search.size < totalCount
+      )
+      Right(response)
+    }
+  }
+
+  def publishRecipe(command: PublishRecipeCommand): Future[Either[List[String], RecipeAggregate]] = {
+    for {
+      // 1. Validation
+      _ <- Future.fromTry(command.validate().toTry)
+      
+      // 2. Récupération recette
+      recipeId <- Future.fromTry(RecipeId.fromString(command.recipeId).toTry)
+      recipeOpt <- recipeRepository.findById(recipeId)
+      recipe <- Future.fromTry(recipeOpt.toRight(List("Recette non trouvée")).toTry)
+      
+      // 3. Validation avant publication
+      validationResult = recipeValidationService.validateBeforePublishing(recipe)
+      _ <- Future.fromTry(validationResult.toTry)
+      
+      // 4. Publication
+      publishedBy <- Future.fromTry(UserId.fromString(command.publishedBy).toTry)
+      publishResult = recipe.publish(publishedBy)
+      publishedRecipe <- publishResult match {
+        case Right(recipe) => Future.successful(recipe)
+        case Left(error) => Future.failed(new RuntimeException(error))
+      }
+      
+      // 5. Persistence
+      result <- recipeRepository.update(publishedRecipe)
+      
+    } yield result match {
+      case Right(recipe) => Right(recipe)
+      case Left(error) => Left(List(error))
+    }
+  }
+
+  def archiveRecipe(command: ArchiveRecipeCommand): Future[Either[List[String], RecipeAggregate]] = {
+    for {
+      // 1. Validation
+      _ <- Future.fromTry(command.validate().toTry)
+      
+      // 2. Récupération recette
+      recipeId <- Future.fromTry(RecipeId.fromString(command.recipeId).toTry)
+      recipeOpt <- recipeRepository.findById(recipeId)
+      recipe <- Future.fromTry(recipeOpt.toRight(List("Recette non trouvée")).toTry)
+      
+      // 3. Archivage
+      archivedBy <- Future.fromTry(UserId.fromString(command.archivedBy).toTry)
+      archivedRecipe = recipe.archive(archivedBy, command.reason)
+      
+      // 4. Persistence
+      result <- recipeRepository.update(archivedRecipe)
+      
+    } yield result match {
+      case Right(recipe) => Right(recipe)
+      case Left(error) => Left(List(error))
+    }
+  }
+}

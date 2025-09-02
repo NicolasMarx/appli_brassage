@@ -124,23 +124,26 @@ class AdminHopsController @Inject()(
             HopOrigin(hopRequest.originCode, hopRequest.originCode, "Unknown")
           )
 
-          val usage = HopUsage.fromString(hopRequest.usage)
+          HopUsage.fromString(hopRequest.usage) match {
+            case Right(usage) =>
+              val createData = CreateHopData(
+                id = UUID.randomUUID().toString,
+                name = hopRequest.name,
+                alphaAcid = hopRequest.alphaAcid,
+                origin = origin,
+                usage = usage,
+                betaAcid = hopRequest.betaAcid,
+                description = hopRequest.description
+              )
 
-          val createData = CreateHopData(
-            id = UUID.randomUUID().toString,
-            name = hopRequest.name,
-            alphaAcid = hopRequest.alphaAcid,
-            origin = origin,
-            usage = usage,
-            betaAcid = hopRequest.betaAcid,
-            description = hopRequest.description
-          )
-
-          hopService.createHop(createData).map { newHop =>
-            Created(Json.toJson(convertToAdminResponse(newHop)))
-          }.recover {
-            case ex =>
-              InternalServerError(Json.obj("error" -> s"Erreur lors de la création: ${ex.getMessage}"))
+              hopService.createHop(createData).map { newHop =>
+                Created(Json.toJson(convertToAdminResponse(newHop)))
+              }.recover {
+                case ex =>
+                  InternalServerError(Json.obj("error" -> s"Erreur lors de la création: ${ex.getMessage}"))
+              }
+            case Left(error) =>
+              Future.successful(BadRequest(Json.obj("error" -> s"Usage invalide: $error")))
           }
         } catch {
           case ex: Exception =>

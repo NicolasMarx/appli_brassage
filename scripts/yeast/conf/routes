@@ -1,0 +1,39 @@
+
+# =============================================================================
+# Yeast routes
+# =============================================================================
+
+# Public API - Levures (lecture seule, pas d'auth)
+GET     /api/v1/yeasts                    interfaces.controllers.yeasts.YeastPublicController.listActiveYeasts(page: Int ?= 0, size: Int ?= 20, name: Option[String], laboratory: Option[String], yeastType: Option[String])
+GET     /api/v1/yeasts/search             interfaces.controllers.yeasts.YeastPublicController.searchYeasts(q: String, limit: Int ?= 20)
+GET     /api/v1/yeasts/type/:yeastType    interfaces.controllers.yeasts.YeastPublicController.getYeastsByType(yeastType: String, limit: Int ?= 20)
+GET     /api/v1/yeasts/laboratory/:lab    interfaces.controllers.yeasts.YeastPublicController.getYeastsByLaboratory(lab: String, limit: Int ?= 20)
+GET     /api/v1/yeasts/:yeastId           interfaces.controllers.yeasts.YeastPublicController.getYeast(yeastId: String)
+GET     /api/v1/yeasts/:yeastId/alternatives  interfaces.controllers.yeasts.YeastPublicController.getAlternatives(yeastId: String, reason: String ?= "unavailable", limit: Int ?= 5)
+
+# Public API - Recommandations levures
+GET     /api/v1/yeasts/recommendations/beginner     interfaces.controllers.yeasts.YeastPublicController.getBeginnerRecommendations(limit: Int ?= 5)
+GET     /api/v1/yeasts/recommendations/seasonal     interfaces.controllers.yeasts.YeastPublicController.getSeasonalRecommendations(season: String ?= "current", limit: Int ?= 8)
+GET     /api/v1/yeasts/recommendations/experimental interfaces.controllers.yeasts.YeastPublicController.getExperimentalRecommendations(limit: Int ?= 6)
+GET     /api/v1/yeasts/recommendations/style/:style interfaces.controllers.yeasts.YeastPublicController.getRecommendationsForBeerStyle(style: String, targetAbv: Option[Double], fermentationTemp: Option[Int], limit: Int ?= 10)
+
+# Public API - Statistiques levures
+GET     /api/v1/yeasts/stats              interfaces.controllers.yeasts.YeastPublicController.getPublicStats()
+GET     /api/v1/yeasts/popular            interfaces.controllers.yeasts.YeastPublicController.getPopularYeasts(limit: Int ?= 10)
+
+# Admin API - Levures (authentification requise)
+GET     /api/admin/yeasts                 interfaces.controllers.yeasts.YeastAdminController.listYeasts(page: Int ?= 0, size: Int ?= 20, name: Option[String], laboratory: Option[String], yeastType: Option[String], status: Option[String])
+POST    /api/admin/yeasts                 interfaces.controllers.yeasts.YeastAdminController.createYeast()
+GET     /api/admin/yeasts/stats           interfaces.controllers.yeasts.YeastAdminController.getStatistics()
+POST    /api/admin/yeasts/batch           interfaces.controllers.yeasts.YeastAdminController.batchCreate()
+GET     /api/admin/yeasts/export          interfaces.controllers.yeasts.YeastAdminController.exportYeasts(format: String ?= "json", status: Option[String])
+
+GET     /api/admin/yeasts/:yeastId        interfaces.controllers.yeasts.YeastAdminController.getYeast(yeastId: String)
+PUT     /api/admin/yeasts/:yeastId        interfaces.controllers.yeasts.YeastAdminController.updateYeast(yeastId: String)
+DELETE  /api/admin/yeasts/:yeastId        interfaces.controllers.yeasts.YeastAdminController.deleteYeast(yeastId: String)
+
+# Admin API - Actions spécifiques levures
+PUT     /api/admin/yeasts/:yeastId/status interfaces.controllers.yeasts.YeastAdminController.changeStatus(yeastId: String)
+PUT     /api/admin/yeasts/:yeastId/activate   interfaces.controllers.yeasts.YeastAdminController.activateYeast(yeastId: String)
+PUT     /api/admin/yeasts/:yeastId/deactivate interfaces.controllers.yeasts.YeastAdminController.deactivateYeast(yeastId: String)
+PUT     /api/admin/yeasts/:yeastId/archive    interfaces.controllers.yeasts.YeastAdminController.archiveYeast(yeastId: String)

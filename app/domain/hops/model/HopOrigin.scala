@@ -40,4 +40,8 @@ object HopOrigin {
     case "ZA" => Some(HopOrigin("ZA", "South Africa", "Africa"))
     case _ => None
   }
+  
+  // JSON format support
+  import play.api.libs.json._
+  implicit val format: Format[HopOrigin] = Json.format[HopOrigin]
 }

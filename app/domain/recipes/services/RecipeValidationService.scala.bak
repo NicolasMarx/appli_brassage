@@ -1,0 +1,155 @@
+package domain.recipes.services
+
+import javax.inject._
+import domain.recipes.model._
+import domain.hops.repositories.HopReadRepository
+import domain.malts.repositories.MaltReadRepository
+import domain.yeasts.repositories.YeastReadRepository
+import scala.concurrent.{ExecutionContext, Future}
+
+@Singleton
+class RecipeValidationService @Inject()(
+  hopRepository: HopReadRepository,
+  maltRepository: MaltReadRepository,
+  yeastRepository: YeastReadRepository
+)(implicit ec: ExecutionContext) {
+
+  def validateRecipeCreation(recipe: RecipeAggregate): Future[Either[List[String], Unit]] = {
+    for {
+      hopValidation <- validateHops(recipe.hops)
+      maltValidation <- validateMalts(recipe.malts)
+      yeastValidation <- validateYeast(recipe.yeast)
+    } yield {
+      val allErrors = List.newBuilder[String]
+      
+      hopValidation.left.foreach(errors => allErrors ++= errors)
+      maltValidation.left.foreach(errors => allErrors ++= errors)
+      yeastValidation.left.foreach(errors => allErrors ++= errors)
+      
+      // Validation business rules
+      if (recipe.malts.isEmpty) allErrors += "Au moins un malt est requis"
+      if (recipe.hops.isEmpty) allErrors += "Au moins un houblon est requis"
+      
+      val finalErrors = allErrors.result()
+      if (finalErrors.nonEmpty) Left(finalErrors) else Right(())
+    }
+  }
+
+  private def validateHops(hops: List[RecipeHop]): Future[Either[List[String], Unit]] = {
+    if (hops.isEmpty) {
+      Future.successful(Right(()))
+    } else {
+      val hopIds = hops.map(_.hopId).distinct
+      Future.sequence(hopIds.map(id => hopRepository.findById(id))).map { results =>
+        val errors = List.newBuilder[String]
+        
+        results.zip(hopIds).foreach { case (hopOpt, hopId) =>
+          if (hopOpt.isEmpty) {
+            errors += s"Houblon non trouvé: ${hopId.value}"
+          }
+        }
+        
+        // Validation quantités
+        hops.foreach { hop =>
+          if (hop.quantityGrams <= 0) {
+            errors += s"Quantité de houblon invalide: ${hop.quantityGrams}g"
+          }
+          if (hop.additionTime < 0) {
+            errors += s"Temps d'addition invalide: ${hop.additionTime} minutes"
+          }
+        }
+        
+        val allErrors = errors.result()
+        if (allErrors.nonEmpty) Left(allErrors) else Right(())
+      }
+    }
+  }
+
+  private def validateMalts(malts: List[RecipeMalt]): Future[Either[List[String], Unit]] = {
+    if (malts.isEmpty) {
+      Future.successful(Left(List("Au moins un malt est requis")))
+    } else {
+      val maltIds = malts.map(_.maltId).distinct
+      Future.sequence(maltIds.map(id => maltRepository.findById(id))).map { results =>
+        val errors = List.newBuilder[String]
+        
+        results.zip(maltIds).foreach { case (maltOpt, maltId) =>
+          if (maltOpt.isEmpty) {
+            errors += s"Malt non trouvé: ${maltId.value}"
+          }
+        }
+        
+        // Validation quantités
+        malts.foreach { malt =>
+          if (malt.quantityKg <= 0) {
+            errors += s"Quantité de malt invalide: ${malt.quantityKg}kg"
+          }
+          malt.percentage.foreach { pct =>
+            if (pct < 0 || pct > 100) {
+              errors += s"Pourcentage de malt invalide: ${pct}%"
+            }
+          }
+        }
+        
+        // Validation total pourcentages si définis
+        val percentages = malts.flatMap(_.percentage)
+        if (percentages.nonEmpty && percentages.size == malts.size) {
+          val total = percentages.sum
+          if (Math.abs(total - 100.0) > 0.1) { // Tolérance de 0.1%
+            errors += s"Total des pourcentages de malts doit être 100% (actuel: ${total}%)"
+          }
+        }
+        
+        val allErrors = errors.result()
+        if (allErrors.nonEmpty) Left(allErrors) else Right(())
+      }
+    }
+  }
+
+  private def validateYeast(yeastOpt: Option[RecipeYeast]): Future[Either[List[String], Unit]] = {
+    yeastOpt match {
+      case None => Future.successful(Right(())) // Optionnel pour l'instant
+      case Some(yeast) =>
+        yeastRepository.findById(yeast.yeastId).map {
+          case None => Left(List(s"Levure non trouvée: ${yeast.yeastId.value}"))
+          case Some(_) =>
+            val errors = List.newBuilder[String]
+            
+            if (yeast.quantityGrams <= 0) {
+              errors += s"Quantité de levure invalide: ${yeast.quantityGrams}g"
+            }
+            
+            yeast.starterSize.foreach { size =>
+              if (size <= 0) {
+                errors += s"Taille de starter invalide: ${size}mL"
+              }
+            }
+            
+            val allErrors = errors.result()
+            if (allErrors.nonEmpty) Left(allErrors) else Right(())
+        }
+    }
+  }
+
+  def validateBeforePublishing(recipe: RecipeAggregate): Either[List[String], Unit] = {
+    val errors = List.newBuilder[String]
+    
+    // Validation complétude
+    if (recipe.malts.isEmpty) errors += "Au moins un malt est requis"
+    if (recipe.hops.isEmpty) errors += "Au moins un houblon est requis"
+    if (recipe.yeast.isEmpty) errors += "Une levure est requise"
+    
+    // Validation calculs
+    if (!recipe.calculations.isComplete) {
+      errors += "Les calculs doivent être complets (OG, FG, ABV)"
+    }
+    
+    // Validation procédures basiques
+    if (!recipe.procedures.hasBasicProcedures) {
+      errors += "Au moins une procédure de base est requise"
+    }
+    
+    val allErrors = errors.result()
+    if (allErrors.nonEmpty) Left(allErrors) else Right(())
+  }
+}
