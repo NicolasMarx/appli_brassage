@@ -15,12 +15,12 @@ GET     /api/admin/hops/:id         controllers.admin.AdminHopsController.detail
 PUT     /api/admin/hops/:id         controllers.admin.AdminHopsController.update(id: String)
 DELETE  /api/admin/hops/:id         controllers.admin.AdminHopsController.delete(id: String)
 
-# API Admin Malts
-GET     /api/admin/malts            controllers.admin.AdminMaltsController.list(page: Int ?= 0, size: Int ?= 20)
-POST    /api/admin/malts            controllers.admin.AdminMaltsController.create()
-GET     /api/admin/malts/:id        controllers.admin.AdminMaltsController.get(id: String)
-PUT     /api/admin/malts/:id        controllers.admin.AdminMaltsController.update(id: String)
-DELETE  /api/admin/malts/:id        controllers.admin.AdminMaltsController.delete(id: String)
+# API Admin Malts  
+GET     /api/admin/malts            interfaces.controllers.malts.MaltAdminController.list(page: Int ?= 0, size: Int ?= 20)
+POST    /api/admin/malts            interfaces.controllers.malts.MaltAdminController.create()
+GET     /api/admin/malts/:id        interfaces.controllers.malts.MaltAdminController.get(id: String)
+PUT     /api/admin/malts/:id        interfaces.controllers.malts.MaltAdminController.update(id: String)
+DELETE  /api/admin/malts/:id        interfaces.controllers.malts.MaltAdminController.delete(id: String)
 
 # Assets
 GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
@@ -105,11 +105,11 @@ GET     /api/v1/recipes/:id/alternatives          interfaces.controllers.recipes
 GET     /api/v1/recipes/stats                     interfaces.controllers.recipes.RecipePublicController.getPublicStats()
 GET     /api/v1/recipes/collections               interfaces.controllers.recipes.RecipePublicController.getRecipeCollections(category: String ?= "all", page: Int ?= 0, size: Int ?= 20)
 
+# Public API - Santé du service (AVANT :id pour éviter conflit routing)
+GET     /api/v1/recipes/health                    interfaces.controllers.recipes.RecipePublicController.health()
+
 # Public API - Endpoints avec ID (APRÈS les endpoints spécifiques pour éviter conflits)
 GET     /api/v1/recipes/:id                       interfaces.controllers.recipes.RecipePublicController.getRecipeDetails(id: String)
-
-# Public API - Santé du service
-GET     /api/v1/recipes/health                    interfaces.controllers.recipes.RecipePublicController.health()
 
 # =============================================================================
 # API RECIPES - ADMIN (authentification requise)

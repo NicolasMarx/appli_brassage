@@ -10,15 +10,17 @@ sealed abstract class YeastLaboratory(val name: String, val fullName: String)
 
 object YeastLaboratory {
 
-  case object Wyeast extends YeastLaboratory("WYEAST", "Wyeast Laboratories")
-  case object WhiteLabs extends YeastLaboratory("WHITE_LABS", "White Labs") 
-  case object Lallemand extends YeastLaboratory("LALLEMAND", "Lallemand Brewing")
-  case object Fermentis extends YeastLaboratory("FERMENTIS", "Fermentis")
-  case object Imperial extends YeastLaboratory("IMPERIAL", "Imperial Yeast")
-  case object Omega extends YeastLaboratory("OMEGA", "Omega Yeast Labs")
-  case object Other extends YeastLaboratory("OTHER", "Autre laboratoire")
+  case object Wyeast extends YeastLaboratory("Wyeast", "Wyeast Laboratories")
+  case object WhiteLabs extends YeastLaboratory("White Labs", "White Labs") 
+  case object Lallemand extends YeastLaboratory("Lallemand", "Lallemand Brewing")
+  case object Fermentis extends YeastLaboratory("Fermentis", "Fermentis")
+  case object Safale extends YeastLaboratory("Safale", "Fermentis Safale")
+  case object Saflager extends YeastLaboratory("Saflager", "Fermentis Saflager")
+  case object Imperial extends YeastLaboratory("Imperial", "Imperial Yeast")
+  case object Omega extends YeastLaboratory("Omega", "Omega Yeast Labs")
+  case object Other extends YeastLaboratory("Other", "Autre laboratoire")
 
-  val all: List[YeastLaboratory] = List(Wyeast, WhiteLabs, Lallemand, Fermentis, Imperial, Omega, Other)
+  val all: List[YeastLaboratory] = List(Wyeast, WhiteLabs, Lallemand, Fermentis, Safale, Saflager, Imperial, Omega, Other)
 
   // CORRECTION: Méthode fromString manquante
   def fromString(name: String): Option[YeastLaboratory] = {

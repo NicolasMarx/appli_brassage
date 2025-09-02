@@ -15,6 +15,7 @@ class MaltListQueryHandler @Inject()(
 
   def handle(query: MaltListQuery): Future[Try[MaltListResponse]] = {
     println(s"🔍 MaltListQueryHandler - page: ${query.page}, size: ${query.size}")
+    query.maltType.foreach(t => println(s"🔍 Filtrage par type: $t"))
     
     // Appel avec les paramètres requis : page, pageSize, activeOnly
     maltReadRepository.findAll(
@@ -25,10 +26,19 @@ class MaltListQueryHandler @Inject()(
       try {
         println(s"📊 Repository retourné: ${malts.length} malts")
         
-        val maltReadModels = malts.map(MaltReadModel.fromAggregate)
+        // CORRECTION: Appliquer le filtre par type après récupération
+        val filteredMalts = query.maltType match {
+          case Some(targetType) =>
+            val filtered = malts.filter(_.maltType == targetType)
+            println(s"🎯 Filtré par type $targetType: ${filtered.length}/${malts.length} malts")
+            filtered
+          case None => malts
+        }
+        
+        val maltReadModels = filteredMalts.map(MaltReadModel.fromAggregate)
         val response = MaltListResponse.create(
           malts = maltReadModels,
-          totalCount = malts.length.toLong, // Approximation - pas de count séparé
+          totalCount = filteredMalts.length.toLong,
           page = query.page,
           size = query.size
         )
