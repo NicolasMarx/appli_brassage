@@ -1,6 +1,10 @@
 ThisBuild / scalaVersion := "2.13.12"
 ThisBuild / version := "1.0-SNAPSHOT"
 
+// Java 21 LTS Configuration
+ThisBuild / javacOptions ++= Seq("-source", "21", "-target", "21")
+ThisBuild / javaOptions ++= Seq("--enable-preview")
+
 lazy val root = (project in file("."))
   .enablePlugins(PlayScala)
   .settings(
@@ -36,7 +40,11 @@ lazy val root = (project in file("."))
       "com.github.tminglei" %% "slick-pg_play-json" % "0.21.1",
       
       // Cache et performance
-      "com.github.blemale" %% "scaffeine" % "5.2.1"
+      "com.github.blemale" %% "scaffeine" % "5.2.1",
+      
+      // Event Sourcing avec pg-event-store
+      "immo.performance" %% "pg-event-store-play-json" % "0.0.0+25-d9a7b12e+20250902-2125-SNAPSHOT",
+      "immo.performance" %% "pg-event-store-postgres" % "0.0.0+25-d9a7b12e+20250902-2125-SNAPSHOT"
     ),
     
     // Configuration compilation

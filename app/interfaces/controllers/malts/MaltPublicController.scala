@@ -237,8 +237,8 @@ class MaltPublicController @Inject()(
             size = result.size,
             hasNext = result.hasNext,
             appliedFilters = validFilter,
-            suggestions = List.empty, // TODO: implement buildSearchSuggestions
-            facets = MaltFacetsDTO(List.empty, List.empty, List.empty, List.empty, List.empty) // TODO: implement buildMaltFacets
+            suggestions = buildSearchSuggestions(result.items, validFilter),
+            facets = buildMaltFacets(result.items)
           )
           Ok(Json.toJson(response))
         }.recover {
@@ -751,6 +751,63 @@ class MaltPublicController @Inject()(
       }.toList.sortBy(-_.maltCount),
       flavorProfileDistribution = flavorStats,
       colorDistribution = colorRanges
+    )
+  }
+
+  private def buildSearchSuggestions(malts: List[MaltAggregate], filter: MaltSearchFilter): List[String] = {
+    val suggestions = scala.collection.mutable.Set[String]()
+    
+    // Suggestions basées sur les noms des malts existants
+    malts.foreach { malt =>
+      suggestions.add(malt.name.value)
+      suggestions.add(malt.maltType.name)
+      suggestions.add(malt.source.name)
+    }
+    
+    // Suggestions contextuelles selon le filtre
+    if (filter.name.nonEmpty) {
+      val partial = filter.name.get.toLowerCase
+      suggestions.addAll(malts.filter(_.name.value.toLowerCase.contains(partial))
+        .map(_.name.value))
+    }
+    
+    suggestions.toList.sorted.take(5)
+  }
+  
+  private def buildMaltFacets(malts: List[MaltAggregate]): MaltFacetsDTO = {
+    val types = malts.groupBy(_.maltType.name).map { case (name, list) =>
+      FacetItem(name, list.length)
+    }.toList.sortBy(-_.count)
+    
+    val sources = malts.groupBy(_.source.name).map { case (name, list) =>
+      FacetItem(name, list.length)
+    }.toList.sortBy(-_.count)
+    
+    val colorRanges = List(
+      ("Très clair (1-10 EBC)", malts.count(_.colorEbc.value <= 10)),
+      ("Clair (11-25 EBC)", malts.count(m => m.colorEbc.value > 10 && m.colorEbc.value <= 25)),
+      ("Ambré (26-50 EBC)", malts.count(m => m.colorEbc.value > 25 && m.colorEbc.value <= 50)),
+      ("Foncé (51-100 EBC)", malts.count(m => m.colorEbc.value > 50 && m.colorEbc.value <= 100)),
+      ("Très foncé (>100 EBC)", malts.count(_.colorEbc.value > 100))
+    ).map { case (name, count) => FacetItem(name, count) }
+    
+    val extractionRanges = List(
+      ("Faible (65-75%)", malts.count(m => m.extractionRate.value >= 65 && m.extractionRate.value < 75)),
+      ("Moyenne (75-82%)", malts.count(m => m.extractionRate.value >= 75 && m.extractionRate.value < 82)),
+      ("Élevée (82%+)", malts.count(_.extractionRate.value >= 82))
+    ).map { case (name, count) => FacetItem(name, count) }
+    
+    val flavorProfiles = malts.flatMap(_.flavorProfile)
+      .groupBy(identity).map { case (flavor, list) =>
+        FacetItem(flavor, list.length)
+      }.toList.sortBy(-_.count).take(8)
+    
+    MaltFacetsDTO(
+      maltTypes = types,
+      sources = sources, 
+      colorRanges = colorRanges,
+      extractionRanges = extractionRanges,
+      flavorProfiles = flavorProfiles
     )
   }
 }

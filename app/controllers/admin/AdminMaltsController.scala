@@ -26,18 +26,30 @@ class AdminMaltsController @Inject()(
   }
 
   def create(): Action[AnyContent] = Action.async {
-    Future.successful(Ok(Json.obj("message" -> "Create malt - TODO")))
+    Future.successful(NotImplemented(Json.obj(
+      "error" -> "Use interfaces.controllers.malts.MaltAdminController instead",
+      "redirect" -> "/api/admin/malts (new endpoint)"
+    )))
   }
 
   def get(id: String): Action[AnyContent] = Action.async {
-    Future.successful(Ok(Json.obj("message" -> s"Get malt $id - TODO")))
+    Future.successful(NotImplemented(Json.obj(
+      "error" -> "Use interfaces.controllers.malts.MaltAdminController instead",
+      "redirect" -> s"/api/admin/malts/$id (new endpoint)"
+    )))
   }
 
   def update(id: String): Action[AnyContent] = Action.async {
-    Future.successful(Ok(Json.obj("message" -> s"Update malt $id - TODO")))
+    Future.successful(NotImplemented(Json.obj(
+      "error" -> "Use interfaces.controllers.malts.MaltAdminController instead", 
+      "redirect" -> s"/api/admin/malts/$id (new endpoint)"
+    )))
   }
 
   def delete(id: String): Action[AnyContent] = Action.async {
-    Future.successful(Ok(Json.obj("message" -> s"Delete malt $id - TODO")))
+    Future.successful(NotImplemented(Json.obj(
+      "error" -> "Use interfaces.controllers.malts.MaltAdminController instead",
+      "redirect" -> s"/api/admin/malts/$id (new endpoint)"
+    )))
   }
 }

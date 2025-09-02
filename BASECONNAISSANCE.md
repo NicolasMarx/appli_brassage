@@ -3,6 +3,8 @@
 **Date de dernière mise à jour** : 2 septembre 2025  
 **Version du projet** : 1.0-SNAPSHOT  
 **Architecture** : DDD/CQRS avec Play Framework
+**Java Version** : ✅ Java 21 LTS (Migration validée)
+**Branche courante** : feature/pg-event-store-integration
 
 ---
 
@@ -92,7 +94,7 @@ Future.successful(Ok(Json.obj("message" -> "Create malt $id - TODO")))
 **Technologies utilisées** :
 - **Scala** : 2.13.12
 - **Play Framework** : 2.9.x
-- **Java** : 24.0.2 ⚠️ (Non supporté - Play recommande Java 11/17/21)
+- **Java** : 21.0.8 ✅ (LTS - Migration réussie)
 - **PostgreSQL** : 42.6.0 driver
 - **Slick** : 5.1.0 (ORM)
 - **SBT** : 1.9.9
@@ -272,3 +274,21 @@ def health(): Action[AnyContent] = Action.async {
 - 🟢 **Compilation** → Sans erreurs
 
 **Estimation de résolution** : 2-3 jours pour les corrections critiques, 1 semaine pour la production complète.
+
+---
+
+## ✅ **ÉVOLUTIONS VALIDÉES**
+
+### Java 21 Migration - 02/09/2025
+- **Statut** : ✅ VALIDÉ
+- **Configuration** : `build.sbt` mis à jour avec javacOptions Java 21
+- **Test** : Compilation réussie (319 fichiers)
+- **Warnings** : 61 warnings non-critiques (deprecated methods)
+- **Branche** : `feature/pg-event-store-integration` créée et pushée
+
+### Prochaines Étapes
+1. **PHASE 2** : Validation et correction pré-migration
+2. **PHASE 3** : Ajout dépendance pg-event-store
+3. **PHASE 4** : Architecture Event Sourcing unifiée
+4. **PHASE 5** : Résolution des 82 TODOs
+5. **PHASE 6** : Tests et validation finale

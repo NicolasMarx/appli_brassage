@@ -5,7 +5,8 @@ Une plateforme moderne de brassage artisanal basée sur une architecture Domain-
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-green)](https://github.com/votre-org/brewing-platform)
 [![Architecture](https://img.shields.io/badge/Architecture-DDD%2FCQRS-blue)](docs/architecture/README.md)
 [![Tech](https://img.shields.io/badge/Tech-Scala%2BPlay%2BPostgreSQL-orange)](#️-stack-technique)
-[![Version](https://img.shields.io/badge/Version-2.1.0-brightgreen)](https://github.com/votre-org/brewing-platform/releases)
+[![Version](https://img.shields.io/badge/Version-1.0--SNAPSHOT-yellow)](https://github.com/votre-org/brewing-platform/releases)
+[![Java](https://img.shields.io/badge/Java-21%20LTS-brightgreen)](#migration-java-21)
 
 ---
 
