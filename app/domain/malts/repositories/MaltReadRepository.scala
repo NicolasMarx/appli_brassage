@@ -39,4 +39,9 @@ trait MaltReadRepository {
     page: Int = 0,
     pageSize: Int = 20
   ): Future[List[MaltAggregate]]
+  
+  /**
+   * Recherche par filtre MaltFilter avec pagination
+   */
+  def findByFilter(filter: domain.malts.model.MaltFilter): Future[domain.common.PaginatedResult[MaltAggregate]]
 }

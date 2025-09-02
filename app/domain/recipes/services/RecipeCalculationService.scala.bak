@@ -1,0 +1,144 @@
+package domain.recipes.services
+
+import javax.inject._
+import domain.recipes.model._
+import java.time.Instant
+
+@Singleton
+class RecipeCalculationService @Inject()() {
+
+  def calculateAll(recipe: RecipeAggregate): RecipeAggregate = {
+    val calculations = RecipeCalculations(
+      originalGravity = calculateOriginalGravity(recipe),
+      finalGravity = calculateFinalGravity(recipe),
+      abv = None, // Calculé après OG/FG
+      ibu = calculateIBU(recipe),
+      srm = calculateSRM(recipe),
+      efficiency = Some(75.0), // Valeur par défaut, sera configurable
+      calculatedAt = Some(Instant.now())
+    )
+    
+    // Calcul ABV basé sur OG/FG
+    val finalCalculations = (calculations.originalGravity, calculations.finalGravity) match {
+      case (Some(og), Some(fg)) =>
+        calculations.copy(abv = Some(calculateABV(og, fg)))
+      case _ =>
+        calculations
+    }
+    
+    recipe.updateCalculations(finalCalculations)
+  }
+
+  private def calculateOriginalGravity(recipe: RecipeAggregate): Option[Double] = {
+    if (recipe.malts.isEmpty) return None
+    
+    // Calcul simplifié basé sur les malts
+    val totalExtract = recipe.malts.map { malt =>
+      // Approximation: 35 points de gravité par kg de malt base par gallon
+      // Conversion pour litres
+      val extractPotential = 35.0 // points/kg/gallon
+      val efficiency = 0.75 // 75% d'efficacité par défaut
+      val batchSizeLiters = recipe.batchSize.toLiters
+      val batchSizeGallons = batchSizeLiters / 3.78541
+      
+      (malt.quantityKg * extractPotential * efficiency) / batchSizeGallons
+    }.sum
+    
+    Some(1.0 + (totalExtract / 1000.0)) // Conversion en gravité spécifique
+  }
+
+  private def calculateFinalGravity(recipe: RecipeAggregate): Option[Double] = {
+    calculateOriginalGravity(recipe).map { og =>
+      // Approximation basée sur atténuation moyenne de 75%
+      val attenuation = 0.75
+      val gravityPoints = (og - 1.0) * 1000
+      val finalGravityPoints = gravityPoints * (1 - attenuation)
+      1.0 + (finalGravityPoints / 1000.0)
+    }
+  }
+
+  private def calculateABV(og: Double, fg: Double): Double = {
+    // Formule standard: ABV = (OG - FG) * 131.25
+    (og - fg) * 131.25
+  }
+
+  private def calculateIBU(recipe: RecipeAggregate): Option[Double] = {
+    if (recipe.hops.isEmpty) return Some(0.0)
+    
+    calculateOriginalGravity(recipe).map { og =>
+      val batchSizeLiters = recipe.batchSize.toLiters
+      
+      recipe.hops.map { hop =>
+        // Formule Tinseth simplifiée
+        val alphaAcidUtilization = calculateAlphaAcidUtilization(hop.additionTime, og)
+        val alphaAcidPercent = 8.0 // Valeur par défaut, devrait venir du houblon
+        
+        (hop.quantityGrams * alphaAcidPercent * alphaAcidUtilization * 10) / batchSizeLiters
+      }.sum
+    }
+  }
+
+  private def calculateAlphaAcidUtilization(boilTime: Int, og: Double): Double = {
+    // Formule Tinseth
+    val gravityFactor = 1.65 * Math.pow(0.000125, og - 1.0)
+    val timeFactor = (1 - Math.exp(-0.04 * boilTime)) / 4.15
+    gravityFactor * timeFactor
+  }
+
+  private def calculateSRM(recipe: RecipeAggregate): Option[Double] = {
+    if (recipe.malts.isEmpty) return Some(0.0)
+    
+    val batchSizeLiters = recipe.batchSize.toLiters
+    
+    val totalColorUnits = recipe.malts.map { malt =>
+      // Valeur par défaut Lovibond, devrait venir du malt
+      val maltLovibond = 2.0 // Valeur pour malt base
+      val maltColorUnits = (malt.quantityKg * maltLovibond * 2.20462) // Conversion kg->lb
+      maltColorUnits
+    }.sum
+    
+    val mcu = totalColorUnits / (batchSizeLiters / 3.78541) // Conversion L->gal
+    
+    // Formule Morey pour conversion MCU -> SRM
+    Some(1.4922 * Math.pow(mcu, 0.6859))
+  }
+
+  def recalculateIfNeeded(recipe: RecipeAggregate): RecipeAggregate = {
+    if (recipe.calculations.needsRecalculation) {
+      calculateAll(recipe)
+    } else {
+      recipe
+    }
+  }
+
+  def validateCalculations(recipe: RecipeAggregate): Either[List[String], Unit] = {
+    val errors = List.newBuilder[String]
+    
+    recipe.calculations.originalGravity.foreach { og =>
+      if (og < 1.020 || og > 1.150) {
+        errors += s"Densité initiale hors limites réalistes: $og"
+      }
+    }
+    
+    recipe.calculations.finalGravity.foreach { fg =>
+      if (fg < 1.000 || fg > 1.030) {
+        errors += s"Densité finale hors limites réalistes: $fg"
+      }
+    }
+    
+    recipe.calculations.abv.foreach { abv =>
+      if (abv < 0 || abv > 20) {
+        errors += s"Degré d'alcool hors limites réalistes: ${abv}%"
+      }
+    }
+    
+    recipe.calculations.ibu.foreach { ibu =>
+      if (ibu < 0 || ibu > 120) {
+        errors += s"IBU hors limites réalistes: $ibu"
+      }
+    }
+    
+    val allErrors = errors.result()
+    if (allErrors.nonEmpty) Left(allErrors) else Right(())
+  }
+}

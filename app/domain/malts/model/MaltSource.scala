@@ -17,6 +17,13 @@ object MaltSource {
   
   val all: List[MaltSource] = List(Manual, AI_Discovery, Import, Community)
   
+  def fromString(name: String): Either[String, MaltSource] = {
+    fromName(name) match {
+      case Some(source) => Right(source)
+      case None => Left(s"Source invalide: $name")
+    }
+  }
+  
   def fromName(name: String): Option[MaltSource] = {
     if (name == null) {
       println(s"⚠️  MaltSource.fromName: nom null")

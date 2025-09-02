@@ -299,4 +299,10 @@ object HopAggregate {
       version = 1
     )
   }
+  
+  // JSON format support for HopAggregate
+  import play.api.libs.json._
+  import domain.shared.NonEmptyString._
+  
+  implicit val format: Format[HopAggregate] = Json.format[HopAggregate]
 }

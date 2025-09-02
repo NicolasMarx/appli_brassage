@@ -38,6 +38,11 @@ object YeastId {
    */
   def apply(uuid: UUID): YeastId = new YeastId(uuid)
   
+  /**
+   * Version unsafe pour les cas où on a déjà validé la donnée
+   */
+  def unsafe(str: String): YeastId = YeastId(UUID.fromString(str))
+  
   implicit val format: Format[YeastId] = Format(
     Reads(js => js.validate[String].flatMap { str =>
       fromString(str) match {

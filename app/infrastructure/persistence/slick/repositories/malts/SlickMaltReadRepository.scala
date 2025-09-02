@@ -340,4 +340,68 @@ class SlickMaltReadRepository @Inject()(
         List.empty[MaltAggregate]
     }
   }
+
+  override def findByFilter(filter: domain.malts.model.MaltFilter): Future[domain.common.PaginatedResult[MaltAggregate]] = {
+    import domain.common.PaginatedResult
+    
+    // Construire la requête avec les filtres
+    var query = malts.filter(_ => true) // Base query
+    
+    // Appliquer les filtres depuis MaltFilter
+    filter.name.foreach { name =>
+      query = query.filter(_.name.toLowerCase like s"%${name.toLowerCase}%")
+    }
+    
+    filter.maltType.foreach { maltType =>
+      query = query.filter(_.maltType === maltType.name)
+    }
+    
+    filter.minEbcColor.foreach { min =>
+      query = query.filter(_.ebcColor >= min)
+    }
+    
+    filter.maxEbcColor.foreach { max =>
+      query = query.filter(_.ebcColor <= max)
+    }
+    
+    filter.minExtractionRate.foreach { min =>
+      query = query.filter(_.extractionRate >= min)
+    }
+    
+    filter.maxExtractionRate.foreach { max =>
+      query = query.filter(_.extractionRate <= max)
+    }
+    
+    filter.minDiastaticPower.foreach { min =>
+      query = query.filter(_.diastaticPower >= min)
+    }
+    
+    filter.maxDiastaticPower.foreach { max =>
+      query = query.filter(_.diastaticPower <= max)
+    }
+    
+    // Filtrer par disponibilité (actif)
+    filter.isActive.foreach { active =>
+      query = query.filter(_.isActive === active)
+    }
+    
+    // Compter le total
+    val countQuery = query.length
+    
+    // Paginer et ordonner
+    val paginatedQuery = query
+      .sortBy(_.name)
+      .drop(filter.page * filter.size)
+      .take(filter.size)
+    
+    for {
+      totalCount <- db.run(countQuery.result)
+      rows <- db.run(paginatedQuery.result)
+    } yield PaginatedResult(
+      items = rows.map(rowToAggregate).toList,
+      totalCount = totalCount.toLong,
+      page = filter.page,
+      size = filter.size
+    )
+  }
 }

@@ -28,6 +28,11 @@ trait HopReadRepository {
    * Récupère tous les houblons avec pagination
    */
   def all(page: Int = 0, size: Int = 20): Future[(List[HopAggregate], Int)]
+  
+  /**
+   * Récupère tous les houblons sans pagination
+   */
+  def findAll(): Future[List[HopAggregate]]
 
   /**
    * Recherche par caractéristiques
@@ -100,4 +105,9 @@ trait HopReadRepository {
    * Récupère les houblons par profil aromatique
    */
   def findByAromaProfile(aromaId: String, activeOnly: Boolean = true): Future[List[HopAggregate]]
+
+  /**
+   * Recherche de houblons avec filtres avancés et pagination
+   */
+  def findByFilter(filter: HopFilter): Future[domain.common.PaginatedResult[HopAggregate]]
 }

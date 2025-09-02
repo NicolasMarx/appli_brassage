@@ -140,7 +140,7 @@ class SlickHopReadRepository @Inject()(
         )
 
         // Mapping des énumérations
-        val usage = HopUsage.fromString(row.usage)
+        val usage = HopUsage.fromString(row.usage).getOrElse(HopUsage.DualPurpose)
         val status = HopStatus.fromString(row.status)
         val source = HopSource.fromString(row.source)
 
@@ -426,5 +426,59 @@ class SlickHopReadRepository @Inject()(
         ex.printStackTrace()
         List.empty[HopAggregate]
     }
+  }
+
+  override def findAll(): Future[List[HopAggregate]] = {
+    val query = hops.sortBy(_.name)
+    
+    db.run(query.result).flatMap { rows =>
+      Future.traverse(rows) { row =>
+        mapRowToAggregateWithAromas(row)
+      }.map(_.toList)
+    }.recover {
+      case ex =>
+        println(s"Erreur lors de la récupération de tous les houblons: ${ex.getMessage}")
+        ex.printStackTrace()
+        List.empty[HopAggregate]
+    }
+  }
+
+  override def findByFilter(filter: HopFilter): Future[domain.common.PaginatedResult[HopAggregate]] = {
+    import domain.common.PaginatedResult
+    
+    // Construire la requête avec les filtres
+    val query = hops.filter { hop =>
+      val nameFilter = filter.name.map(n => hop.name.toLowerCase like s"%${n.toLowerCase}%")
+      val originFilter = filter.origin.map(o => hop.originCode === o)
+      val usageFilter = filter.usage.map(u => hop.usage === u.value)
+      val minAlphaFilter = filter.minAlphaAcids.map(min => hop.alphaAcid >= min)
+      val maxAlphaFilter = filter.maxAlphaAcids.map(max => hop.alphaAcid <= max)
+      val statusFilter = filter.available.map(active => if (active) hop.status === "ACTIVE" else hop.status =!= "ACTIVE")
+      
+      List(nameFilter, originFilter, usageFilter, minAlphaFilter, maxAlphaFilter, statusFilter)
+        .flatten
+        .reduceLeftOption(_ && _)
+        .getOrElse(LiteralColumn(true))
+    }
+    
+    // Compter le total
+    val countQuery = query.length
+    
+    // Paginer et ordonner
+    val paginatedQuery = query
+      .sortBy(_.name)
+      .drop(filter.offset)
+      .take(filter.size)
+    
+    for {
+      totalCount <- db.run(countQuery.result)
+      rows <- db.run(paginatedQuery.result)
+      aggregates <- Future.traverse(rows)(mapRowToAggregateWithAromas)
+    } yield PaginatedResult(
+      items = aggregates.toList,
+      totalCount = totalCount.toLong,
+      page = filter.page,
+      size = filter.size
+    )
   }
 }

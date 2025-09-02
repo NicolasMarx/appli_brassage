@@ -76,3 +76,48 @@ PUT     /api/admin/yeasts/:yeastId/status interfaces.controllers.yeasts.YeastAdm
 PUT     /api/admin/yeasts/:yeastId/activate   interfaces.controllers.yeasts.YeastAdminController.activateYeast(yeastId: String)
 PUT     /api/admin/yeasts/:yeastId/deactivate interfaces.controllers.yeasts.YeastAdminController.deactivateYeast(yeastId: String)
 PUT     /api/admin/yeasts/:yeastId/archive    interfaces.controllers.yeasts.YeastAdminController.archiveYeast(yeastId: String)
+
+# =============================================================================
+# API RECIPES - INTERFACE PUBLIQUE COMPLÈTE
+# =============================================================================
+
+# Public API - Recherche et découverte de recettes
+GET     /api/v1/recipes/search                    interfaces.controllers.recipes.RecipePublicController.searchRecipes()
+GET     /api/v1/recipes/discover                  interfaces.controllers.recipes.RecipePublicController.discoverRecipes(category: String ?= "trending", limit: Int ?= 12)
+
+# Public API - Recommandations intelligentes
+GET     /api/v1/recipes/recommendations/beginner         interfaces.controllers.recipes.RecipePublicController.getBeginnerRecommendations(maxResults: Int ?= 6)
+GET     /api/v1/recipes/recommendations/style/:style     interfaces.controllers.recipes.RecipePublicController.getStyleRecommendations(style: String, difficulty: String ?= "all", maxResults: Int ?= 8)
+GET     /api/v1/recipes/recommendations/ingredients      interfaces.controllers.recipes.RecipePublicController.getIngredientBasedRecommendations()
+GET     /api/v1/recipes/recommendations/seasonal/:season interfaces.controllers.recipes.RecipePublicController.getSeasonalRecommendations(season: String, maxResults: Int ?= 8)
+GET     /api/v1/recipes/recommendations/progression      interfaces.controllers.recipes.RecipePublicController.getProgressionRecommendations(lastRecipeId: String, currentLevel: String ?= "beginner", maxResults: Int ?= 5)
+
+# Public API - Comparaison et analyse
+GET     /api/v1/recipes/compare                   interfaces.controllers.recipes.RecipePublicController.compareRecipes(recipeIds: String)
+POST    /api/v1/recipes/analyze                   interfaces.controllers.recipes.RecipePublicController.analyzeCustomRecipe()
+
+# Public API - Outils et calculateurs
+GET     /api/v1/recipes/:id/scale                 interfaces.controllers.recipes.RecipePublicController.scaleRecipe(id: String, targetBatchSize: Double, targetUnit: String ?= "L")
+GET     /api/v1/recipes/:id/brewing-guide         interfaces.controllers.recipes.RecipePublicController.getBrewingGuide(id: String)
+GET     /api/v1/recipes/:id/alternatives          interfaces.controllers.recipes.RecipePublicController.getAlternatives(id: String, reason: String ?= "unavailable_ingredients", maxResults: Int ?= 5)
+
+# Public API - Fonctionnalités communautaires
+GET     /api/v1/recipes/stats                     interfaces.controllers.recipes.RecipePublicController.getPublicStats()
+GET     /api/v1/recipes/collections               interfaces.controllers.recipes.RecipePublicController.getRecipeCollections(category: String ?= "all", page: Int ?= 0, size: Int ?= 20)
+
+# Public API - Endpoints avec ID (APRÈS les endpoints spécifiques pour éviter conflits)
+GET     /api/v1/recipes/:id                       interfaces.controllers.recipes.RecipePublicController.getRecipeDetails(id: String)
+
+# Public API - Santé du service
+GET     /api/v1/recipes/health                    interfaces.controllers.recipes.RecipePublicController.health()
+
+# =============================================================================
+# API RECIPES - ADMIN (authentification requise)
+# =============================================================================
+
+# Admin API - Recettes (authentification requise)
+GET     /api/admin/recipes                interfaces.controllers.recipes.RecipeAdminController.list(page: Int ?= 0, size: Int ?= 20)
+POST    /api/admin/recipes                interfaces.controllers.recipes.RecipeAdminController.create()
+GET     /api/admin/recipes/_health        interfaces.controllers.recipes.RecipeAdminController.health()
+GET     /api/admin/recipes/:recipeId      interfaces.controllers.recipes.RecipeAdminController.get(recipeId: String)
+DELETE  /api/admin/recipes/:recipeId      interfaces.controllers.recipes.RecipeAdminController.delete(recipeId: String)

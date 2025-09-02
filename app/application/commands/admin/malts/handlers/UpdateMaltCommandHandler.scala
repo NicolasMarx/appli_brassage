@@ -24,17 +24,20 @@ class UpdateMaltCommandHandler @Inject()(
   }
 
   private def processUpdate(command: UpdateMaltCommand): Future[Either[DomainError, MaltId]] = {
-    val maltId = MaltId.fromString(command.id)
-    
-    for {
-      maltOpt <- maltReadRepo.findById(maltId)
-      result <- maltOpt match {
-        case Some(malt) => 
-          // TODO: Implémenter la mise à jour complète
-          Future.successful(Right(malt.id))
-        case None => 
-          Future.successful(Left(DomainError.notFound("Malt", command.id)))
-      }
-    } yield result
+    MaltId.fromString(command.id) match {
+      case Right(maltId) =>
+        for {
+          maltOpt <- maltReadRepo.findById(maltId)
+          result <- maltOpt match {
+            case Some(malt) => 
+              // TODO: Implémenter la mise à jour complète
+              Future.successful(Right(malt.id))
+            case None => 
+              Future.successful(Left(DomainError.notFound("Malt", command.id)))
+          }
+        } yield result
+      case Left(error) =>
+        Future.successful(Left(DomainError.validation(error)))
+    }
   }
 }
