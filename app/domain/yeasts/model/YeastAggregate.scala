@@ -104,7 +104,8 @@ object YeastAggregate {
     flocculation: FlocculationLevel,
     alcoholTolerance: AlcoholTolerance,
     description: Option[String] = None,
-    characteristics: YeastCharacteristics
+    characteristics: YeastCharacteristics,
+    isActive: Boolean = true
   ): YeastAggregate = {
     val now = Instant.now()
     val yeast = YeastAggregate(
@@ -119,7 +120,7 @@ object YeastAggregate {
       alcoholTolerance = alcoholTolerance,
       description = description,
       characteristics = characteristics,
-      isActive = true,
+      isActive = isActive,
       createdAt = now,
       updatedAt = now,
       aggregateVersion = 1

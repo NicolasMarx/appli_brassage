@@ -6,6 +6,10 @@ import infrastructure.persistence.slick.repositories.hops.{SlickHopReadRepositor
 import domain.recipes.repositories.{RecipeRepository, RecipeReadRepository, RecipeWriteRepository}
 import infrastructure.persistence.slick.repositories.recipes.{SlickRecipeRepository, SlickRecipeReadRepository, SlickRecipeWriteRepository}
 
+// Import repositories yeasts
+import domain.yeasts.repositories.{YeastReadRepository, YeastWriteRepository}
+import infrastructure.persistence.slick.repositories.yeasts.{SlickYeastReadRepository, SlickYeastWriteRepository}
+
 // Import repositories malts
 
 /**
@@ -23,6 +27,10 @@ final class BindingsModule extends AbstractModule {
     bind(classOf[RecipeWriteRepository]).to(classOf[SlickRecipeWriteRepository])
     bind(classOf[RecipeRepository]).to(classOf[SlickRecipeRepository])
 
-    println("BindingsModule chargé - Repositories Hops, Malts et Recipes connectés à PostgreSQL")
+    // ===== YEAST REPOSITORIES =====
+    bind(classOf[YeastReadRepository]).to(classOf[SlickYeastReadRepository])
+    bind(classOf[YeastWriteRepository]).to(classOf[SlickYeastWriteRepository])
+
+    println("BindingsModule chargé - Repositories Hops, Recipes et Yeasts connectés à PostgreSQL")
   }
 }

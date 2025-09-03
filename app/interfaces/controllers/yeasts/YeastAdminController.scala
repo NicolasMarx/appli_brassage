@@ -7,7 +7,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import java.util.UUID
 import application.yeasts.dtos.YeastDTOs._
 
-import application.yeasts.services.YeastApplicationService
+import application.yeasts.services.{YeastApplicationService, YeastAdminStatsService, YeastBatchService, YeastExportService}
 import application.yeasts.dtos.YeastSearchRequestDTO
 import application.yeasts.commands.{CreateYeastCommand, DeleteYeastCommand}
 import infrastructure.auth.AuthAction
@@ -16,6 +16,9 @@ import infrastructure.auth.AuthAction
 class YeastAdminController @Inject()(
   cc: ControllerComponents,
   yeastApplicationService: YeastApplicationService,
+  yeastAdminStatsService: YeastAdminStatsService,
+  yeastBatchService: YeastBatchService,
+  yeastExportService: YeastExportService,
   authAction: AuthAction
 )(implicit ec: ExecutionContext) extends AbstractController(cc) {
 
@@ -140,7 +143,16 @@ class YeastAdminController @Inject()(
   }
 
   def getStatistics(): Action[AnyContent] = Action.async { request =>
-    Future.successful(Ok(Json.obj("message" -> "Statistics not implemented yet")))
+    yeastAdminStatsService.getAdminStatistics().map { stats =>
+      Ok(stats)
+    }.recover {
+      case ex: Exception =>
+        println(s"Error in getStatistics: ${ex.getMessage}")
+        InternalServerError(Json.obj(
+          "error" -> "Failed to generate admin statistics",
+          "details" -> ex.getMessage
+        ))
+    }
   }
 
   def batchCreate(): Action[JsValue] = Action.async(parse.json) { implicit request =>
@@ -153,7 +165,48 @@ class YeastAdminController @Inject()(
           val Array(username, password) = credentials.split(":", 2)
           if ((username == "admin" && password == "brewing2024") || (username == "editor" && password == "ingredients2024")) {
             // Utilisateur authentifié, procéder à la création par batch
-            Future.successful(NotImplemented(Json.obj("message" -> "Batch create not implemented yet")))
+            
+            val validateOnly = (request.body \ "validateOnly").asOpt[Boolean].getOrElse(false)
+            val format = (request.body \ "format").asOpt[String] match {
+              case Some("csv") => application.yeasts.services.BatchFormat.CSV
+              case _ => application.yeasts.services.BatchFormat.JSON
+            }
+            
+            yeastBatchService.importYeastsBatch(
+              data = request.body,
+              format = format,
+              validateOnly = validateOnly
+            ).map { result =>
+              if (result.errorCount == 0) {
+                Ok(Json.obj(
+                  "success" -> true,
+                  "processedCount" -> result.processedCount,
+                  "createdCount" -> result.createdCount,
+                  "validCount" -> result.validCount,
+                  "summary" -> result.summary,
+                  "warnings" -> result.warnings
+                ))
+              } else {
+                BadRequest(Json.obj(
+                  "success" -> false,
+                  "processedCount" -> result.processedCount,
+                  "validCount" -> result.validCount,
+                  "errorCount" -> result.errorCount,
+                  "errors" -> result.errors.map(error => Json.obj(
+                    "line" -> error.lineNumber,
+                    "field" -> error.field,
+                    "message" -> error.message,
+                    "type" -> error.errorType
+                  ))
+                ))
+              }
+            }.recover {
+              case ex: Exception =>
+                InternalServerError(Json.obj(
+                  "error" -> "Batch import failed",
+                  "details" -> ex.getMessage
+                ))
+            }
           } else {
             Future.successful(Unauthorized("Invalid credentials"))
           }
@@ -165,6 +218,53 @@ class YeastAdminController @Inject()(
   }
 
   def exportYeasts(format: String = "json", status: Option[String] = None): Action[AnyContent] = Action.async { request =>
-    Future.successful(NotImplemented(Json.obj("message" -> "Export not implemented yet")))
+    
+    val exportFormat = format.toLowerCase match {
+      case "csv" => application.yeasts.services.ExportFormat.CSV
+      case "pdf" => application.yeasts.services.ExportFormat.PDF
+      case _ => application.yeasts.services.ExportFormat.JSON
+    }
+    
+    val yeastStatus = status.flatMap { s =>
+      s.toLowerCase match {
+        case "active" => Some(domain.yeasts.model.YeastStatus.Active)
+        case "inactive" => Some(domain.yeasts.model.YeastStatus.Inactive)
+        case _ => None
+      }
+    }
+    
+    val filter = domain.yeasts.model.YeastFilter(
+      status = yeastStatus.toList,
+      size = 100
+    )
+    
+    yeastExportService.exportYeasts(
+      filter = filter,
+      format = exportFormat,
+      template = application.yeasts.services.ExportTemplate.Standard,
+      includeMetadata = true
+    ).map { result =>
+      val response = Json.obj(
+        "success" -> true,
+        "format" -> format,
+        "recordCount" -> result.recordCount,
+        "filename" -> result.filename,
+        "contentType" -> result.contentType,
+        "data" -> result.data
+      )
+      
+      val responseWithMetadata = result.metadata match {
+        case Some(metadata) => response + ("metadata" -> metadata)
+        case None => response + ("metadata" -> Json.obj())
+      }
+      
+      Ok(responseWithMetadata)
+    }.recover {
+      case ex: Exception =>
+        InternalServerError(Json.obj(
+          "error" -> "Export failed",
+          "details" -> ex.getMessage
+        ))
+    }
   }
 }

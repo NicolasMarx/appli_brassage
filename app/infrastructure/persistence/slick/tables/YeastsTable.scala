@@ -3,6 +3,7 @@ package infrastructure.persistence.slick.tables
 import domain.yeasts.model._
 import domain.shared.NonEmptyString
 import play.api.libs.json._
+import play.api.libs.functional.syntax._
 import slick.jdbc.PostgresProfile.api._
 import java.time.Instant
 import java.util.UUID
@@ -101,41 +102,83 @@ object YeastRow {
    * Conversion YeastRow -> YeastAggregate
    */
   def toAggregate(row: YeastRow): Either[String, YeastAggregate] = {
-    for {
-      yeastId <- Right(YeastId(row.id))
-      yeastName <- YeastName.fromString(row.name)
-      name <- Right(NonEmptyString.unsafe(yeastName.value))
-      laboratory <- YeastLaboratory.fromName(row.laboratory)
-        .toRight(s"Laboratoire inconnu: ${row.laboratory}")
-      strain <- YeastStrain.fromString(row.strain)
-      yeastType <- YeastType.fromName(row.yeastType)
-        .toRight(s"Type levure inconnu: ${row.yeastType}")
-      attenuationRange <- Right(AttenuationRange.unsafe(row.attenuationMin, row.attenuationMax))
-      fermentationTemp <- Right(FermentationTemp.unsafe(row.temperatureMin, row.temperatureMax))
-      alcoholTolerance <- Right(AlcoholTolerance.unsafe(row.alcoholTolerance))
-      flocculation <- FlocculationLevel.fromName(row.flocculation)
-        .toRight(s"Floculation inconnue: ${row.flocculation}")
-      characteristics <- parseCharacteristics(row.characteristics)
-      status <- YeastStatus.fromName(row.status)
-        .toRight(s"Statut inconnu: ${row.status}")
-    } yield {
-      YeastAggregate(
-        id = yeastId,
-        name = name,
-        strain = strain,
-        yeastType = yeastType,
-        laboratory = laboratory,
-        attenuationRange = attenuationRange,
-        fermentationTemp = fermentationTemp,
-        flocculation = flocculation,
-        alcoholTolerance = alcoholTolerance,
-        description = None, // TODO: add description field to row
-        characteristics = characteristics,
-        isActive = row.status == "ACTIVE",
-        createdAt = row.createdAt,
-        updatedAt = row.updatedAt,
-        aggregateVersion = row.version.toInt
-      )
+    println(s"Converting row: ${row.id} - ${row.name}")
+    
+    try {
+      for {
+        yeastId <- {
+          println(s"  Creating YeastId...")
+          Right(YeastId(row.id))
+        }
+        yeastName <- {
+          println(s"  Parsing YeastName: ${row.name}")
+          YeastName.fromString(row.name)
+        }
+        name <- {
+          println(s"  Creating NonEmptyString...")
+          Right(NonEmptyString.unsafe(yeastName.value))
+        }
+        laboratory <- {
+          println(s"  Parsing YeastLaboratory: ${row.laboratory}")
+          YeastLaboratory.fromName(row.laboratory).toRight(s"Laboratoire inconnu: ${row.laboratory}")
+        }
+        strain <- {
+          println(s"  Parsing YeastStrain: ${row.strain}")
+          YeastStrain.fromString(row.strain)
+        }
+        yeastType <- {
+          println(s"  Parsing YeastType: ${row.yeastType}")
+          YeastType.fromName(row.yeastType).toRight(s"Type levure inconnu: ${row.yeastType}")
+        }
+        attenuationRange <- {
+          println(s"  Creating AttenuationRange: ${row.attenuationMin}-${row.attenuationMax}")
+          Right(AttenuationRange.unsafe(row.attenuationMin, row.attenuationMax))
+        }
+        fermentationTemp <- {
+          println(s"  Creating FermentationTemp: ${row.temperatureMin}-${row.temperatureMax}")
+          Right(FermentationTemp.unsafe(row.temperatureMin, row.temperatureMax))
+        }
+        alcoholTolerance <- {
+          println(s"  Creating AlcoholTolerance: ${row.alcoholTolerance}")
+          Right(AlcoholTolerance.unsafe(row.alcoholTolerance))
+        }
+        flocculation <- {
+          println(s"  Parsing FlocculationLevel: ${row.flocculation}")
+          FlocculationLevel.fromName(row.flocculation).toRight(s"Floculation inconnue: ${row.flocculation}")
+        }
+        characteristics <- {
+          println(s"  Parsing characteristics JSON: ${row.characteristics}")
+          parseCharacteristics(row.characteristics)
+        }
+        status <- {
+          println(s"  Parsing YeastStatus: ${row.status}")
+          YeastStatus.fromName(row.status).toRight(s"Statut inconnu: ${row.status}")
+        }
+      } yield {
+        println(s"  Creating YeastAggregate...")
+        YeastAggregate(
+          id = yeastId,
+          name = name,
+          strain = strain,
+          yeastType = yeastType,
+          laboratory = laboratory,
+          attenuationRange = attenuationRange,
+          fermentationTemp = fermentationTemp,
+          flocculation = flocculation,
+          alcoholTolerance = alcoholTolerance,
+          description = None, // TODO: add description field to row
+          characteristics = characteristics,
+          isActive = row.status == "ACTIVE",
+          createdAt = row.createdAt,
+          updatedAt = row.updatedAt,
+          aggregateVersion = row.version.toInt
+        )
+      }
+    } catch {
+      case ex: Exception =>
+        println(s"EXCEPTION in toAggregate for ${row.name}: ${ex.getMessage}")
+        ex.printStackTrace()
+        Left(s"Exception during conversion: ${ex.getMessage}")
     }
   }
   
@@ -157,7 +200,16 @@ object YeastRow {
   
   // Formatters JSON implicites pour YeastCharacteristics
   implicit val yeastCharacteristicsWrites: Writes[YeastCharacteristics] = Json.writes[YeastCharacteristics]
-  implicit val yeastCharacteristicsReads: Reads[YeastCharacteristics] = Json.reads[YeastCharacteristics]
+  implicit val yeastCharacteristicsReads: Reads[YeastCharacteristics] = (
+    (JsPath \ "aromaProfile").read[List[String]] and
+    (JsPath \ "flavorProfile").read[List[String]] and
+    (JsPath \ "esters").read[List[String]] and
+    (JsPath \ "phenols").read[List[String]] and
+    (JsPath \ "otherCompounds").read[List[String]] and
+    (JsPath \ "notes").readNullable[String]
+  )((aromaProfile: List[String], flavorProfile: List[String], esters: List[String], phenols: List[String], otherCompounds: List[String], notes: Option[String]) =>
+    YeastCharacteristics(aromaProfile, flavorProfile, esters, phenols, otherCompounds, notes)
+  )
 }
 
 /**

@@ -131,6 +131,49 @@ case class RecipeQualityScoreUpdated(
   override val version: Int
 ) extends BaseDomainEvent(recipeId, "RecipeQualityScoreUpdated", version) with RecipeEvent
 
+// ========== NOUVEAUX EVENTS POUR PHASE D ==========
+
+case class RecipeScaled(
+  recipeId: String,
+  originalBatchSize: Double,
+  targetBatchSize: Double,
+  scalingFactor: Double,
+  scaledIngredients: String, // JSON des ingrédients mis à l'échelle
+  calculationContext: String, // JSON du contexte de calcul
+  scaledBy: String,
+  override val version: Int
+) extends BaseDomainEvent(recipeId, "RecipeScaled", version) with RecipeEvent
+
+case class BrewingGuideGenerated(
+  recipeId: String,
+  guideType: String, // "BASIC", "DETAILED", "PROFESSIONAL"
+  brewingSteps: String, // JSON de la timeline de brassage
+  estimatedDuration: Int, // En minutes
+  complexityLevel: String,
+  generatedBy: String,
+  override val version: Int
+) extends BaseDomainEvent(recipeId, "BrewingGuideGenerated", version) with RecipeEvent
+
+case class RecipeAnalyzed(
+  recipeId: String,
+  analysisType: String, // "BALANCE", "STYLE_COMPLIANCE", "FULL_ANALYSIS"
+  analysisResults: String, // JSON des résultats d'analyse
+  validationStatus: String, // "VALID", "WARNINGS", "ERRORS"
+  recommendations: String, // JSON des recommandations
+  analyzedBy: String,
+  override val version: Int
+) extends BaseDomainEvent(recipeId, "RecipeAnalyzed", version) with RecipeEvent
+
+case class RecipeAlternativesCalculated(
+  recipeId: String,
+  alternativeType: String, // "INGREDIENT_SUBSTITUTION", "STYLE_VARIATION", "AVAILABILITY"
+  alternatives: String, // JSON des alternatives calculées
+  reasoning: String, // JSON de la logique de recommandation
+  confidenceScore: Double,
+  calculatedBy: String,
+  override val version: Int
+) extends BaseDomainEvent(recipeId, "RecipeAlternativesCalculated", version) with RecipeEvent
+
 /**
  * Objet companion pour la sérialisation JSON
  * Suit exactement le pattern YeastEvent
@@ -151,6 +194,12 @@ object RecipeEvent {
   implicit val recipeDeletedFormat: Format[RecipeDeleted] = Json.format[RecipeDeleted]
   implicit val recipeReviewRequestedFormat: Format[RecipeReviewRequested] = Json.format[RecipeReviewRequested]
   implicit val recipeQualityScoreUpdatedFormat: Format[RecipeQualityScoreUpdated] = Json.format[RecipeQualityScoreUpdated]
+  
+  // Nouveaux formats pour PHASE D
+  implicit val recipeScaledFormat: Format[RecipeScaled] = Json.format[RecipeScaled]
+  implicit val brewingGuideGeneratedFormat: Format[BrewingGuideGenerated] = Json.format[BrewingGuideGenerated]
+  implicit val recipeAnalyzedFormat: Format[RecipeAnalyzed] = Json.format[RecipeAnalyzed]
+  implicit val recipeAlternativesCalculatedFormat: Format[RecipeAlternativesCalculated] = Json.format[RecipeAlternativesCalculated]
 
   implicit val format: Format[RecipeEvent] = Format(
     Reads { js =>
@@ -169,6 +218,10 @@ object RecipeEvent {
         case Some("RecipeDeleted") => js.validate[RecipeDeleted]
         case Some("RecipeReviewRequested") => js.validate[RecipeReviewRequested]
         case Some("RecipeQualityScoreUpdated") => js.validate[RecipeQualityScoreUpdated]
+        case Some("RecipeScaled") => js.validate[RecipeScaled]
+        case Some("BrewingGuideGenerated") => js.validate[BrewingGuideGenerated]
+        case Some("RecipeAnalyzed") => js.validate[RecipeAnalyzed]
+        case Some("RecipeAlternativesCalculated") => js.validate[RecipeAlternativesCalculated]
         case eventType => JsError(s"Type d'événement recipe inconnu: $eventType")
       }
     },
@@ -187,6 +240,10 @@ object RecipeEvent {
       case e: RecipeDeleted => Json.toJson(e)
       case e: RecipeReviewRequested => Json.toJson(e)
       case e: RecipeQualityScoreUpdated => Json.toJson(e)
+      case e: RecipeScaled => Json.toJson(e)
+      case e: BrewingGuideGenerated => Json.toJson(e)
+      case e: RecipeAnalyzed => Json.toJson(e)
+      case e: RecipeAlternativesCalculated => Json.toJson(e)
     }
   )
 }

@@ -178,42 +178,76 @@ class YeastRecommendationService @Inject()(
   // ==========================================================================
 
   private def isBeginnerFriendly(yeast: YeastAggregate): Boolean = {
-    val hasSuitableFlocculation = yeast.flocculation match {
-      case FlocculationLevel.MEDIUM | FlocculationLevel.HIGH | FlocculationLevel.VERY_HIGH => true
+    // Algorithme intelligent moins restrictif pour recommandations débutants
+    // Score basé sur facilité d'utilisation plutôt que critères stricts
+    
+    // 1. Levures ALE sont plus faciles que LAGER (pas besoin contrôle température strict)
+    val isEasyType = yeast.yeastType match {
+      case YeastType.ALE => true
+      case YeastType.LAGER => true // Accepter aussi les lagers simples
+      case _ => false // Exclure WILD, BRETT, etc.
+    }
+    
+    // 2. Laboratoires réputés pour qualité constante
+    val isReliableLab = yeast.laboratory match {
+      case YeastLaboratory.Wyeast | YeastLaboratory.WhiteLabs | YeastLaboratory.Lallemand | YeastLaboratory.Fermentis => true
       case _ => false
     }
     
-    hasSuitableFlocculation && 
-    yeast.fermentationTemp.range <= 6 && // Plage de température pas trop large
-    yeast.characteristics.isClean // Profil neutre plus facile
+    // 3. Température de fermentation raisonnable (pas trop chaude = moins de risque)
+    val hasSafeTemp = yeast.fermentationTemp.max <= 28 // Max 28°C pour éviter problèmes
+    
+    // Critères: au moins 2 sur 3 doivent être vrais (OU logique souple)
+    val positiveScore = List(isEasyType, isReliableLab, hasSafeTemp).count(_ == true)
+    
+    // Accept si score >= 2, ou si c'est une levure ALE active de labo reconnu
+    positiveScore >= 2 || (yeast.yeastType == YeastType.ALE && isReliableLab && yeast.isActive)
   }
   private def calculateBeginnerScore(yeast: YeastAggregate): Double = {
-    var score = 0.0
+    var score = 0.5 // Score de base plus élevé
     
-    // Bonus floculation élevée (plus facile à clarifier)
+    // CRITÈRE PRINCIPAL: Type de levure (impact majeur)
+    yeast.yeastType match {
+      case YeastType.ALE => score += 0.4 // ALE = plus facile pour débutants
+      case YeastType.LAGER => score += 0.2 // LAGER = un peu plus technique mais OK
+      case _ => score += 0.0 // WILD/BRETT = pas pour débutants
+    }
+    
+    // CRITÈRE LABORATOIRE: Fiabilité et réputation
+    yeast.laboratory match {
+      case YeastLaboratory.Wyeast => score += 0.3 // Excellent pour débutants
+      case YeastLaboratory.WhiteLabs => score += 0.3 // Excellent pour débutants  
+      case YeastLaboratory.Fermentis => score += 0.25 // Très bon, sec
+      case YeastLaboratory.Lallemand => score += 0.2 // Bon, moderne
+      case _ => score += 0.1 // Autres labs moins connus
+    }
+    
+    // CRITÈRE TEMPÉRATURE: Facilité de contrôle
+    val tempRange = yeast.fermentationTemp.range
+    if (tempRange <= 4) score += 0.2 // Plage étroite = plus prévisible
+    else if (tempRange <= 6) score += 0.15
+    else score += 0.05
+    
+    // CRITÈRE ATTÉNUATION: Prévisibilité
+    val attRange = yeast.attenuationRange.range
+    if (attRange <= 10) score += 0.15 // Atténuation prévisible
+    else score += 0.05
+    
+    // BONUS FLOCULATION: Facilité de clarification
     yeast.flocculation match {
-      case FlocculationLevel.HIGH => score += 0.3
-      case FlocculationLevel.VERY_HIGH => score += 0.25
-      case FlocculationLevel.MEDIUM => score += 0.2
+      case FlocculationLevel.HIGH | FlocculationLevel.VERY_HIGH => score += 0.15
+      case FlocculationLevel.MEDIUM => score += 0.1
       case _ => score += 0.0
     }
     
-    // Bonus profil propre
-    if (yeast.characteristics.isClean) score += 0.25
+    // BONUS CARACTÉRISTIQUES: Profil neutre plus facile à maîtriser
+    if (yeast.characteristics.isClean) score += 0.1
     
-    // Bonus plage température raisonnable
-    if (yeast.fermentationTemp.range <= 4) score += 0.2
+    // BONUS STATUT: Levure active et disponible
+    if (yeast.isActive) score += 0.1
     
-    // Bonus atténuation prévisible
-    if (yeast.attenuationRange.range <= 8) score += 0.15
-    
-    // Bonus laboratoires reconnus pour débutants
-    yeast.laboratory match {
-      case YeastLaboratory.Fermentis | YeastLaboratory.Lallemand => score += 0.1
-      case _ => score += 0.05
-    }
-    
-    score
+    // Score final entre 0.0 et ~2.0
+    Math.min(score, 2.0)
   }
 
   private def isExperimental(yeast: YeastAggregate): Boolean = {
@@ -316,15 +350,84 @@ class YeastRecommendationService @Inject()(
   // ==========================================================================
 
   private def generateBeginnerReason(yeast: YeastAggregate): String = {
-    s"${yeast.name.value} est idéale pour débuter : ${yeast.flocculation.description.toLowerCase}, ${yeast.characteristics.toString.take(50)}..."
+    val reasons = scala.collection.mutable.ListBuffer[String]()
+    
+    // Raison principale : type de levure
+    yeast.yeastType match {
+      case YeastType.ALE => reasons += "levure ALE facile à utiliser"
+      case YeastType.LAGER => reasons += "lager classique et fiable"
+      case _ => reasons += "souche spéciale"
+    }
+    
+    // Raison laboratoire
+    yeast.laboratory match {
+      case YeastLaboratory.Wyeast => reasons += "Wyeast très réputé pour débutants"
+      case YeastLaboratory.WhiteLabs => reasons += "White Labs qualité constante"
+      case YeastLaboratory.Fermentis => reasons += "Fermentis levure sèche simple"
+      case YeastLaboratory.Lallemand => reasons += "Lallemand innovation moderne"
+      case _ => // Pas de mention spéciale
+    }
+    
+    // Raison température
+    val tempRange = yeast.fermentationTemp.range
+    if (tempRange <= 4) reasons += "plage température étroite"
+    else if (tempRange <= 6) reasons += "température bien contrôlée"
+    
+    // Raison atténuation
+    val attRange = yeast.attenuationRange.range  
+    if (attRange <= 8) reasons += "atténuation prévisible"
+    
+    // Raison floculation
+    yeast.flocculation match {
+      case FlocculationLevel.HIGH | FlocculationLevel.VERY_HIGH => reasons += "flocule bien (clarification facile)"
+      case FlocculationLevel.MEDIUM => reasons += "clarification standard"
+      case _ => // Pas de mention
+    }
+    
+    if (reasons.nonEmpty) {
+      s"${yeast.name.value} : ${reasons.take(3).mkString(", ")}"
+    } else {
+      s"${yeast.name.value} : choix équilibré pour débuter"
+    }
   }
 
   private def generateBeginnerTips(yeast: YeastAggregate): List[String] = {
-    List(
-      s"Fermenter à ${yeast.fermentationTemp.min}-${yeast.fermentationTemp.max}°C",
-      s"Atténuation attendue : ${yeast.attenuationRange.min}-${yeast.attenuationRange.max}%",
-      yeast.flocculation.rackingRecommendation
-    )
+    val tips = scala.collection.mutable.ListBuffer[String]()
+    
+    // Tip température (toujours utile)
+    tips += s"Fermenter à ${yeast.fermentationTemp.min}-${yeast.fermentationTemp.max}°C"
+    
+    // Tip atténuation
+    tips += s"Atténuation attendue : ${yeast.attenuationRange.min}-${yeast.attenuationRange.max}%"
+    
+    // Tips spécifiques au laboratoire  
+    yeast.laboratory match {
+      case YeastLaboratory.Fermentis => tips += "Réhydrater 15 min avant inoculation"
+      case YeastLaboratory.Wyeast | YeastLaboratory.WhiteLabs => tips += "Faire un starter si DG > 1.050"
+      case YeastLaboratory.Lallemand => tips += "Pas besoin de starter, ensemencement direct OK"
+      case _ => // Pas de tip spécial
+    }
+    
+    // Tips type de levure
+    yeast.yeastType match {
+      case YeastType.ALE => tips += "Fermentation rapide 3-7 jours à température ambiante"
+      case YeastType.LAGER => tips += "Fermentation froide puis lagering 2-6 semaines"
+      case _ => // Pas de tip standard
+    }
+    
+    // Tips floculation
+    yeast.flocculation match {
+      case FlocculationLevel.HIGH | FlocculationLevel.VERY_HIGH => 
+        tips += "Excellente clarification, soutirage facile"
+      case FlocculationLevel.MEDIUM => 
+        tips += "Clarification standard, attendre 3-5 jours"
+      case FlocculationLevel.LOW => 
+        tips += "Reste en suspension, prévoir clarifiants"
+      case _ => // Pas de tip spécial
+    }
+    
+    // Limiter à 4 tips max pour lisibilité
+    tips.take(4).toList
   }
 
   private def generateSeasonalReason(yeast: YeastAggregate, season: Season): String = {

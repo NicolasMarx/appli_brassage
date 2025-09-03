@@ -6,7 +6,7 @@ import play.api.libs.json._
 import scala.concurrent.{ExecutionContext, Future}
 import java.util.UUID
 
-import application.yeasts.services.YeastApplicationService
+import application.yeasts.services.{YeastApplicationService, YeastStatsService}
 import application.yeasts.utils.YeastApplicationUtils
 import application.yeasts.dtos.YeastDTOs._
 import application.yeasts.dtos.YeastSearchRequestDTO
@@ -18,7 +18,8 @@ import application.yeasts.dtos.{YeastRecommendationResponse, RecommendationListR
 class YeastPublicController @Inject()(
   cc: ControllerComponents,
   yeastApplicationService: YeastApplicationService,
-  yeastRecommendationService: YeastRecommendationService
+  yeastRecommendationService: YeastRecommendationService,
+  yeastStatsService: YeastStatsService
 )(implicit ec: ExecutionContext) extends AbstractController(cc) {
 
   def listActiveYeasts(
@@ -46,8 +47,26 @@ class YeastPublicController @Inject()(
     )
     
     yeastApplicationService.findYeasts(searchRequest).map {
-      case Right(response) => Ok(Json.toJson(response))
-      case Left(errors) => InternalServerError(Json.toJson(YeastApplicationUtils.buildErrorResponse(errors.mkString(", "))))
+      case Right(response) => 
+        println(s"SUCCESS: Got response with ${response.yeasts.size} yeasts")
+        try {
+          val jsonResponse = Json.toJson(response)
+          println(s"SUCCESS: JSON serialization OK")
+          Ok(jsonResponse)
+        } catch {
+          case ex: Exception =>
+            println(s"ERROR: JSON serialization failed: ${ex.getMessage}")
+            ex.printStackTrace()
+            InternalServerError(Json.obj("error" -> "JSON serialization error", "details" -> ex.getMessage))
+        }
+      case Left(errors) => 
+        println(s"ERROR: findYeasts returned errors: ${errors.mkString(", ")}")
+        InternalServerError(Json.toJson(YeastApplicationUtils.buildErrorResponse(errors.mkString(", "))))
+    }.recover {
+      case ex: Exception =>
+        println(s"FATAL ERROR in listActiveYeasts: ${ex.getMessage}")
+        ex.printStackTrace()
+        InternalServerError(Json.obj("error" -> "Fatal error", "details" -> ex.getMessage))
     }
   }
 
@@ -211,8 +230,25 @@ class YeastPublicController @Inject()(
     Future.successful(Ok(Json.obj("message" -> "Style recommendations not implemented yet")))
   }
 
+  // DEBUG API - test simple sans conversion
+  def debugTest(): Action[AnyContent] = Action.async { request =>
+    println("DEBUG: debugTest called")
+    Future.successful(Ok(Json.obj("message" -> "Debug test OK", "timestamp" -> System.currentTimeMillis())))
+  }
+
+  // Removed problematic debug API
+
   def getPublicStats(): Action[AnyContent] = Action.async { request =>
-    Future.successful(Ok(Json.obj("message" -> "Public stats not implemented yet")))
+    yeastStatsService.getPublicStats().map { stats =>
+      Ok(stats)
+    }.recover {
+      case ex: Exception =>
+        println(s"Error in getPublicStats: ${ex.getMessage}")
+        InternalServerError(Json.obj(
+          "error" -> "Failed to calculate yeast statistics", 
+          "details" -> ex.getMessage
+        ))
+    }
   }
 
   def getPopularYeasts(limit: Int = 10): Action[AnyContent] = Action.async { request =>

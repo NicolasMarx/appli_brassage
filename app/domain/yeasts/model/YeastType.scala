@@ -6,7 +6,9 @@ import play.api.libs.json._
  * Énumération des types de levures
  * CORRECTION: Ajout des méthodes fromName, parse et recommendedForBeerStyle
  */
-sealed abstract class YeastType(val name: String, val description: String)
+sealed abstract class YeastType(val name: String, val description: String) {
+  def numericCode: Int = YeastType.all.indexOf(this)
+}
 
 object YeastType {
   
@@ -31,6 +33,9 @@ object YeastType {
   def parse(name: String): Either[String, YeastType] = {
     fromName(name).toRight(s"Type de levure invalide: $name")
   }
+
+  // CORRECTION: Méthode fromString pour compatibilité batch service
+  def fromString(name: String): Either[String, YeastType] = parse(name)
 
   // CORRECTION: Méthode recommendedForBeerStyle manquante
   def recommendedForBeerStyle(beerStyle: String): List[YeastType] = {

@@ -161,12 +161,28 @@ class SlickYeastReadRepository @Inject()(
       }
     } yield {
       println(s"Results: totalCount=$totalCount, items.size=${items.size}")
-      PaginatedResult(
-        items = items.map(rowToAggregate).toList,
-        totalCount = totalCount.toLong,
-        page = filter.page,
-        size = filter.size
-      )
+      println(s"Converting ${items.size} rows to aggregates...")
+      
+      try {
+        val aggregates = items.map { row =>
+          println(s"Converting row: ${row.id} - ${row.name}")
+          rowToAggregate(row)
+        }.toList
+        
+        println(s"Successfully converted ${aggregates.size} aggregates")
+        
+        PaginatedResult(
+          items = aggregates,
+          totalCount = totalCount.toLong,
+          page = filter.page,
+          size = filter.size
+        )
+      } catch {
+        case ex: Exception =>
+          println(s"FATAL ERROR in aggregate conversion: ${ex.getMessage}")
+          ex.printStackTrace()
+          throw ex
+      }
     }
   }
   
@@ -265,7 +281,9 @@ class SlickYeastReadRepository @Inject()(
   private def rowToAggregate(row: YeastRow): YeastAggregate = {
     YeastRow.toAggregate(row) match {
       case Right(aggregate) => aggregate
-      case Left(error) => throw new RuntimeException(s"Erreur conversion YeastRow: $error")
+      case Left(error) => 
+        println(s"ERREUR CONVERSION YeastRow: ${row.id} - ${row.name} - $error")
+        throw new RuntimeException(s"Erreur conversion YeastRow: $error")
     }
   }
 }

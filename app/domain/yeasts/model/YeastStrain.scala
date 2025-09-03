@@ -7,10 +7,11 @@ case class YeastStrain private(value: String) extends AnyVal
 object YeastStrain {
   def fromString(value: String): Either[String, YeastStrain] = {
     if (value.trim.isEmpty) Left("Strain cannot be empty")
-    else Right(YeastStrain(value.trim))
+    else Right(new YeastStrain(value.trim))
   }
   
-  def unsafe(value: String): YeastStrain = YeastStrain(value)
+  def apply(value: String): YeastStrain = new YeastStrain(value)
+  def unsafe(value: String): YeastStrain = new YeastStrain(value)
   
   implicit val format: Format[YeastStrain] = Format(
     Reads(json => json.validate[String].flatMap(s => 

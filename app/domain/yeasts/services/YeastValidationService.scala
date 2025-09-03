@@ -32,12 +32,16 @@ class YeastValidationService @Inject()()(implicit ec: ExecutionContext) {
           .left.map(err => DomainError.validation(err))
         validStrain <- YeastStrain.fromString(strain)
           .left.map(err => DomainError.validation(err))
-        validType <- YeastType.fromName(yeastType)
-          .toRight(DomainError.validation(s"Type de levure invalide: $yeastType"))
+        validType <- YeastType.fromName(yeastType) match {
+          case Some(value) => Right(value)
+          case None => Left(DomainError.validation(s"Type de levure invalide: $yeastType"))
+        }
         validLab <- YeastLaboratory.fromString(laboratory)
-          .toRight(DomainError.validation(s"Laboratoire invalide: $laboratory"))
-        validFloc <- FlocculationLevel.fromName(flocculation)
-          .toRight(DomainError.validation(s"Niveau de floculation invalide: $flocculation"))
+          .left.map(err => DomainError.validation(s"Laboratoire invalide: $laboratory - $err"))
+        validFloc <- FlocculationLevel.fromName(flocculation) match {
+          case Some(value) => Right(value)
+          case None => Left(DomainError.validation(s"Niveau de floculation invalide: $flocculation"))
+        }
         validAttRange <- AttenuationRange.create(attenuationMin.toInt, attenuationMax.toInt)
           .left.map(err => DomainError.validation(err))
         validTempRange <- FermentationTemp.create(temperatureMin.toInt, temperatureMax.toInt)

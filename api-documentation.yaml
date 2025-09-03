@@ -1,0 +1,2101 @@
+openapi: 3.0.3
+info:
+  title: My Brew App V2 - Complete API Documentation
+  description: |
+    Comprehensive API documentation for the brewing platform.
+    Built with DDD/CQRS architecture using Scala 2.13 + Play Framework 2.9.x.
+    
+    **Database**: PostgreSQL with real brewing data
+    - 19 Hop varieties with complete characteristics
+    - 13 Malt types with flavor profiles  
+    - 10 Yeast strains with fermentation data
+    - Recipe management and intelligent recommendations
+    
+    **Architecture**: Domain-Driven Design with CQRS
+    **Authentication**: Basic Auth for admin endpoints
+    **Data Quality**: 100% real brewing data, no mocks
+    
+  version: 2.0.0
+  contact:
+    name: Brewing Platform API
+    url: http://localhost:9000
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:9000
+    description: Development server
+
+tags:
+  - name: Home
+    description: Application home and health checks
+  - name: Hops Public
+    description: Public hop variety information and search
+  - name: Hops Admin
+    description: Administrative hop management (requires authentication)
+  - name: Malts Public
+    description: Public malt information and recommendations
+  - name: Malts Admin  
+    description: Administrative malt management (requires authentication)
+  - name: Yeasts Public
+    description: Public yeast strain information and recommendations
+  - name: Yeasts Admin
+    description: Administrative yeast management (requires authentication)
+  - name: Recipes Public
+    description: Public recipe search, recommendations and brewing tools
+  - name: Recipes Admin
+    description: Administrative recipe management (requires authentication)
+
+paths:
+  # =============================================================================
+  # HOME & ASSETS
+  # =============================================================================
+  /:
+    get:
+      tags: [Home]
+      summary: Application home page
+      description: Returns the main application page
+      responses:
+        '200':
+          description: Home page HTML
+          content:
+            text/html:
+              schema:
+                type: string
+                example: "<!DOCTYPE html>..."
+
+  /assets/{file}:
+    get:
+      tags: [Home]
+      summary: Static assets
+      description: Serves static assets (CSS, JS, images)
+      parameters:
+        - name: file
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "js/app.js"
+      responses:
+        '200':
+          description: Static file content
+        '404':
+          description: File not found
+
+  # =============================================================================
+  # HOPS PUBLIC APIs (4 endpoints)
+  # =============================================================================
+  /api/v1/hops:
+    get:
+      tags: [Hops Public]
+      summary: List all hops
+      description: |
+        Returns a paginated list of all hop varieties with complete brewing characteristics.
+        Contains real data for 19+ hop varieties including alpha acids, origins, and flavor profiles.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Page number (0-based)
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: Page size (max 100)
+      responses:
+        '200':
+          description: List of hops
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hops:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Hop'
+                  totalCount:
+                    type: integer
+                    example: 19
+                  page:
+                    type: integer
+                  size:
+                    type: integer
+                  hasNext:
+                    type: boolean
+
+  /api/v1/hops/{id}:
+    get:
+      tags: [Hops Public]
+      summary: Get hop details
+      description: Returns detailed information about a specific hop variety
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "amarillo"
+      responses:
+        '200':
+          description: Hop details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hop'
+        '404':
+          description: Hop not found
+
+  /api/v1/hops/search:
+    post:
+      tags: [Hops Public]
+      summary: Search hops
+      description: Advanced hop search with multiple filter criteria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  example: "cascade"
+                limit:
+                  type: integer
+                  default: 10
+                alphaAcidMin:
+                  type: number
+                alphaAcidMax:
+                  type: number
+                usage:
+                  type: string
+                  enum: [BITTERING, AROMA, DUAL]
+                origin:
+                  type: string
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hops:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Hop'
+                  totalCount:
+                    type: integer
+
+  # =============================================================================
+  # HOPS ADMIN APIs (5 endpoints) 
+  # =============================================================================
+  /api/admin/hops:
+    get:
+      tags: [Hops Admin]
+      summary: List hops (admin)
+      description: Administrative view of all hops with management capabilities
+      security:
+        - basicAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of hops for admin
+        '401':
+          description: Authentication required
+        '403':
+          description: Insufficient permissions
+
+    post:
+      tags: [Hops Admin]
+      summary: Create new hop
+      description: Creates a new hop variety
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHopRequest'
+      responses:
+        '201':
+          description: Hop created successfully
+        '400':
+          description: Invalid request data
+        '401':
+          description: Authentication required
+
+  /api/admin/hops/{id}:
+    get:
+      tags: [Hops Admin]
+      summary: Get hop details (admin)
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Hop details
+        '404':
+          description: Hop not found
+
+    put:
+      tags: [Hops Admin]
+      summary: Update hop
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHopRequest'
+      responses:
+        '200':
+          description: Hop updated
+        '404':
+          description: Hop not found
+
+    delete:
+      tags: [Hops Admin]
+      summary: Delete hop
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Hop deleted
+        '404':
+          description: Hop not found
+
+  # =============================================================================
+  # MALTS PUBLIC APIs (4 endpoints)
+  # =============================================================================
+  /api/v1/malts:
+    get:
+      tags: [Malts Public]
+      summary: List all malts
+      description: |
+        Returns all malt varieties with brewing characteristics.
+        Contains real data for 13+ malt types including EBC colors, extraction rates, and flavor profiles.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of malts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  malts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Malt'
+                  totalCount:
+                    type: integer
+                    example: 13
+
+  /api/v1/malts/{id}:
+    get:
+      tags: [Malts Public]
+      summary: Get malt details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "02113546-c03d-408a-b015-76c98cd735f1"
+      responses:
+        '200':
+          description: Malt details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Malt'
+        '400':
+          description: Invalid UUID format
+        '404':
+          description: Malt not found
+
+  /api/v1/malts/search:
+    post:
+      tags: [Malts Public]
+      summary: Search malts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                query:
+                  type: string
+                  example: "pilsner"
+                maltType:
+                  type: string
+                  enum: [BASE, CRYSTAL, ROASTED, SPECIALTY]
+                minEbc:
+                  type: number
+                maxEbc:
+                  type: number
+                limit:
+                  type: integer
+                  default: 10
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  malts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Malt'
+
+  /api/v1/malts/type/{maltType}:
+    get:
+      tags: [Malts Public]
+      summary: Get malts by type
+      parameters:
+        - name: maltType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [BASE, CRYSTAL, ROASTED, SPECIALTY]
+          example: "BASE"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Malts of specified type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  malts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Malt'
+
+  # =============================================================================
+  # MALTS ADMIN APIs (5 endpoints)
+  # =============================================================================
+  /api/admin/malts:
+    get:
+      tags: [Malts Admin]
+      summary: List malts (admin)
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: List of malts for admin
+        '403':
+          description: Authentication required
+
+    post:
+      tags: [Malts Admin]
+      summary: Create new malt
+      security:
+        - basicAuth: []
+      responses:
+        '201':
+          description: Malt created
+        '403':
+          description: Authentication required
+
+  /api/admin/malts/{id}:
+    get:
+      tags: [Malts Admin]
+      summary: Get malt details (admin)
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Malt details
+        '400':
+          description: Invalid UUID
+        '404':
+          description: Malt not found
+
+    put:
+      tags: [Malts Admin]
+      summary: Update malt
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Malt updated
+        '403':
+          description: Authentication required
+
+    delete:
+      tags: [Malts Admin]
+      summary: Delete malt
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Malt deleted
+        '403':
+          description: Authentication required
+
+  # =============================================================================
+  # YEASTS PUBLIC APIs (14 endpoints)
+  # =============================================================================
+  /api/v1/yeasts:
+    get:
+      tags: [Yeasts Public]
+      summary: List all yeasts
+      description: |
+        Returns all yeast strains with complete fermentation data.
+        Contains real data for 10+ yeast strains including temperature ranges, attenuation, and characteristics.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: name
+          in: query
+          schema:
+            type: string
+          description: Filter by name
+        - name: laboratory
+          in: query
+          schema:
+            type: string
+          description: Filter by laboratory (Wyeast, Safale, etc.)
+        - name: yeastType
+          in: query
+          schema:
+            type: string
+            enum: [ALE, LAGER]
+          description: Filter by type
+      responses:
+        '200':
+          description: List of yeasts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  yeasts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Yeast'
+                  totalCount:
+                    type: integer
+                    example: 10
+
+  /api/v1/yeasts/debug:
+    get:
+      tags: [Yeasts Public]
+      summary: Debug test endpoint
+      description: Simple debug endpoint for testing connectivity
+      responses:
+        '200':
+          description: Debug response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Debug test OK"
+                  timestamp:
+                    type: integer
+
+  /api/v1/yeasts/search:
+    get:
+      tags: [Yeasts Public]
+      summary: Search yeasts
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          example: "wyeast"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Search results (may be empty array)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Yeast'
+
+  /api/v1/yeasts/stats:
+    get:
+      tags: [Yeasts Public]
+      summary: Yeast statistics
+      description: |
+        Comprehensive statistics about yeast strains including distributions,
+        trends, and brewing insights. All data is real-time calculated from database.
+      responses:
+        '200':
+          description: Detailed yeast statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overview:
+                    type: object
+                    properties:
+                      totalYeasts:
+                        type: integer
+                        example: 10
+                      activeYeasts:
+                        type: integer
+                        example: 10
+                      laboratories:
+                        type: integer
+                        example: 3
+                      yeastTypes:
+                        type: integer
+                        example: 2
+                  distributions:
+                    type: object
+                    properties:
+                      laboratories:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      yeastTypes:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                  fermentationProfile:
+                    type: object
+                    properties:
+                      averageTemperature:
+                        type: number
+                        example: 19.4
+                      averageAttenuation:
+                        type: number
+                        example: 76.4
+
+  /api/v1/yeasts/popular:
+    get:
+      tags: [Yeasts Public]
+      summary: Popular yeasts
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Popular yeast strains
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  yeasts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Yeast'
+
+  /api/v1/yeasts/type/{yeastType}:
+    get:
+      tags: [Yeasts Public]
+      summary: Get yeasts by type
+      parameters:
+        - name: yeastType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [ALE, LAGER]
+          example: "ALE"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Yeasts of specified type
+
+  /api/v1/yeasts/laboratory/{lab}:
+    get:
+      tags: [Yeasts Public]
+      summary: Get yeasts by laboratory
+      parameters:
+        - name: lab
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "Wyeast"
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Yeasts from specified laboratory
+
+  /api/v1/yeasts/recommendations/beginner:
+    get:
+      tags: [Yeasts Public]
+      summary: Beginner-friendly yeast recommendations
+      description: Returns yeasts recommended for beginning brewers
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Beginner recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/YeastRecommendation'
+
+  /api/v1/yeasts/recommendations/seasonal:
+    get:
+      tags: [Yeasts Public]
+      summary: Seasonal yeast recommendations
+      parameters:
+        - name: season
+          in: query
+          schema:
+            type: string
+            default: "current"
+            enum: [spring, summer, autumn, winter, current]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 8
+      responses:
+        '200':
+          description: Seasonal recommendations
+
+  /api/v1/yeasts/recommendations/experimental:
+    get:
+      tags: [Yeasts Public]
+      summary: Experimental yeast recommendations
+      description: Advanced yeasts for experimental brewing
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 6
+      responses:
+        '200':
+          description: Experimental recommendations
+
+  /api/v1/yeasts/recommendations/style/{style}:
+    get:
+      tags: [Yeasts Public]
+      summary: Style-specific recommendations
+      parameters:
+        - name: style
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ipa"
+        - name: targetAbv
+          in: query
+          schema:
+            type: number
+        - name: fermentationTemp
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Style-specific recommendations
+
+  /api/v1/yeasts/{yeastId}:
+    get:
+      tags: [Yeasts Public]
+      summary: Get yeast details
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: "aa201791-8f93-4966-a5d2-880ffd51da60"
+      responses:
+        '200':
+          description: Yeast details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Yeast'
+        '400':
+          description: Invalid UUID format
+        '404':
+          description: Yeast not found
+
+  /api/v1/yeasts/{yeastId}/alternatives:
+    get:
+      tags: [Yeasts Public]
+      summary: Get yeast alternatives
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: reason
+          in: query
+          schema:
+            type: string
+            default: "unavailable"
+            enum: [unavailable, similar_profile, cost, availability]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Alternative yeast recommendations
+        '404':
+          description: Yeast not found
+
+  # =============================================================================
+  # YEASTS ADMIN APIs (12 endpoints)
+  # =============================================================================
+  /api/admin/yeasts:
+    get:
+      tags: [Yeasts Admin]
+      summary: List yeasts (admin)
+      security:
+        - basicAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: name
+          in: query
+          schema:
+            type: string
+        - name: laboratory
+          in: query
+          schema:
+            type: string
+        - name: yeastType
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of yeasts for admin
+        '403':
+          description: Authentication required
+
+    post:
+      tags: [Yeasts Admin]
+      summary: Create new yeast
+      security:
+        - basicAuth: []
+      responses:
+        '201':
+          description: Yeast created
+        '403':
+          description: Authentication required
+
+  /api/admin/yeasts/stats:
+    get:
+      tags: [Yeasts Admin]
+      summary: Admin yeast statistics
+      description: |
+        Advanced administrative statistics including quality metrics,
+        data integrity checks, performance metrics, and actionable insights.
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: Comprehensive admin statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overview:
+                    type: object
+                  qualityMetrics:
+                    type: object
+                  laboratoryAnalytics:
+                    type: object
+                  performanceMetrics:
+                    type: object
+                  adminAlerts:
+                    type: array
+                  actionableInsights:
+                    type: array
+        '500':
+          description: Statistics generation failed
+
+  /api/admin/yeasts/batch:
+    post:
+      tags: [Yeasts Admin]  
+      summary: Batch create yeasts
+      description: |
+        Import multiple yeasts in batch with comprehensive validation.
+        Supports JSON and CSV formats with full domain validation.
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                validateOnly:
+                  type: boolean
+                  default: false
+                format:
+                  type: string
+                  enum: [json, csv]
+                  default: "json"
+                yeasts:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/BatchYeastData'
+      responses:
+        '200':
+          description: Batch processing results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  processedCount:
+                    type: integer
+                  createdCount:
+                    type: integer
+                  validCount:
+                    type: integer
+                  errorCount:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        line:
+                          type: integer
+                        field:
+                          type: string
+                        message:
+                          type: string
+        '400':
+          description: Validation errors in batch data
+        '403':
+          description: Authentication required
+
+  /api/admin/yeasts/export:
+    get:
+      tags: [Yeasts Admin]
+      summary: Export yeasts
+      description: |
+        Export yeast data in multiple formats (JSON, CSV, PDF) with metadata.
+        Supports filtering by status and format selection.
+      security:
+        - basicAuth: []
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, pdf]
+            default: "json"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+      responses:
+        '200':
+          description: Export data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  format:
+                    type: string
+                  recordCount:
+                    type: integer
+                  filename:
+                    type: string
+                  contentType:
+                    type: string
+                  data:
+                    type: object
+                  metadata:
+                    type: object
+        '500':
+          description: Export failed
+
+  /api/admin/yeasts/{yeastId}:
+    get:
+      tags: [Yeasts Admin]
+      summary: Get yeast details (admin)
+      security:
+        - basicAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Yeast details
+        '400':
+          description: Invalid UUID
+        '404':
+          description: Yeast not found
+
+    put:
+      tags: [Yeasts Admin]
+      summary: Update yeast
+      security:
+        - basicAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Yeast updated
+        '403':
+          description: Authentication required
+
+    delete:
+      tags: [Yeasts Admin]
+      summary: Delete yeast
+      security:
+        - basicAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Yeast deleted
+        '403':
+          description: Authentication required
+
+  /api/admin/yeasts/{yeastId}/status:
+    put:
+      tags: [Yeasts Admin]
+      summary: Change yeast status
+      security:
+        - basicAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [active, inactive, archived]
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Status changed
+        '403':
+          description: Authentication required
+
+  /api/admin/yeasts/{yeastId}/activate:
+    put:
+      tags: [Yeasts Admin]
+      summary: Activate yeast
+      security:
+        - basicAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Yeast activated
+        '403':
+          description: Authentication required
+
+  /api/admin/yeasts/{yeastId}/deactivate:
+    put:
+      tags: [Yeasts Admin]
+      summary: Deactivate yeast
+      security:
+        - basicAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Yeast deactivated
+        '403':
+          description: Authentication required
+
+  /api/admin/yeasts/{yeastId}/archive:
+    put:
+      tags: [Yeasts Admin]
+      summary: Archive yeast
+      security:
+        - basicAuth: []
+      parameters:
+        - name: yeastId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Yeast archived
+        '403':
+          description: Authentication required
+
+  # =============================================================================
+  # RECIPES PUBLIC APIs (16 endpoints)
+  # =============================================================================
+  /api/v1/recipes/health:
+    get:
+      tags: [Recipes Public]
+      summary: Recipe service health
+      description: Health check for the recipe service
+      responses:
+        '200':
+          description: Service health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                  version:
+                    type: string
+                  services:
+                    type: object
+
+  /api/v1/recipes/search:
+    get:
+      tags: [Recipes Public]
+      summary: Search recipes
+      description: Advanced recipe search with multiple filter options
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+          description: Search query
+        - name: style
+          in: query
+          schema:
+            type: string
+          description: Beer style filter
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [beginner, intermediate, advanced, expert]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recipes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                  totalCount:
+                    type: integer
+                  hasNext:
+                    type: boolean
+
+  /api/v1/recipes/discover:
+    get:
+      tags: [Recipes Public]
+      summary: Discover recipes
+      description: Discover trending and featured recipes
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            default: "trending"
+            enum: [trending, featured, popular, new]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 12
+      responses:
+        '200':
+          description: Discovered recipes
+
+  /api/v1/recipes/recommendations/beginner:
+    get:
+      tags: [Recipes Public]
+      summary: Beginner recipe recommendations
+      parameters:
+        - name: maxResults
+          in: query
+          schema:
+            type: integer
+            default: 6
+      responses:
+        '200':
+          description: Beginner-friendly recipes
+
+  /api/v1/recipes/recommendations/style/{style}:
+    get:
+      tags: [Recipes Public]
+      summary: Style-specific recipe recommendations
+      parameters:
+        - name: style
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ipa"
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            default: "all"
+            enum: [all, beginner, intermediate, advanced, expert]
+        - name: maxResults
+          in: query
+          schema:
+            type: integer
+            default: 8
+      responses:
+        '200':
+          description: Style-specific recommendations
+
+  /api/v1/recipes/recommendations/ingredients:
+    get:
+      tags: [Recipes Public]
+      summary: Ingredient-based recommendations
+      description: Recipe recommendations based on available ingredients
+      parameters:
+        - name: hops
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: Available hop varieties
+        - name: malts
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: Available malt types
+        - name: yeasts
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: Available yeast strains
+      responses:
+        '200':
+          description: Ingredient-based recommendations
+        '400':
+          description: Missing ingredient parameters
+
+  /api/v1/recipes/recommendations/seasonal/{season}:
+    get:
+      tags: [Recipes Public]
+      summary: Seasonal recipe recommendations
+      parameters:
+        - name: season
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [spring, summer, autumn, winter]
+          example: "summer"
+        - name: maxResults
+          in: query
+          schema:
+            type: integer
+            default: 8
+      responses:
+        '200':
+          description: Seasonal recommendations
+
+  /api/v1/recipes/recommendations/progression:
+    get:
+      tags: [Recipes Public]
+      summary: Progression recommendations
+      description: Next recipes to brew based on brewing progression
+      parameters:
+        - name: lastRecipeId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID of the last brewed recipe
+        - name: currentLevel
+          in: query
+          schema:
+            type: string
+            default: "beginner"
+            enum: [beginner, intermediate, advanced, expert]
+        - name: maxResults
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Progression recommendations
+        '400':
+          description: Invalid recipe ID or level
+
+  /api/v1/recipes/compare:
+    get:
+      tags: [Recipes Public]
+      summary: Compare recipes
+      description: Side-by-side comparison of multiple recipes
+      parameters:
+        - name: recipeIds
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Comma-separated recipe IDs (2-4 recipes)
+          example: "uuid1,uuid2,uuid3"
+      responses:
+        '200':
+          description: Recipe comparison
+        '400':
+          description: Invalid recipe IDs or wrong count (need 2-4)
+
+  /api/v1/recipes/analyze:
+    post:
+      tags: [Recipes Public]
+      summary: Analyze custom recipe
+      description: Analyze a custom recipe for brewing insights
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Test Recipe"
+                style:
+                  type: string
+                  example: "IPA"
+                ingredients:
+                  type: object
+                  properties:
+                    malts:
+                      type: array
+                    hops:
+                      type: array
+                    yeasts:
+                      type: array
+                batchSize:
+                  type: object
+                  properties:
+                    value:
+                      type: number
+                    unit:
+                      type: string
+      responses:
+        '200':
+          description: Recipe analysis results
+        '400':
+          description: Invalid recipe data
+
+  /api/v1/recipes/stats:
+    get:
+      tags: [Recipes Public]
+      summary: Recipe statistics
+      description: Public statistics about recipes in the database
+      responses:
+        '200':
+          description: Recipe statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalRecipes:
+                    type: integer
+                  publishedRecipes:
+                    type: integer
+                  styleDistribution:
+                    type: object
+                  averageDifficulty:
+                    type: string
+                  popularStyles:
+                    type: array
+                    items:
+                      type: string
+
+  /api/v1/recipes/collections:
+    get:
+      tags: [Recipes Public]
+      summary: Recipe collections
+      description: Browse curated recipe collections
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            default: "all"
+            enum: [all, seasonal, style, difficulty, ingredients]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Recipe collections
+
+  /api/v1/recipes/{id}:
+    get:
+      tags: [Recipes Public]
+      summary: Get recipe details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recipe details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '400':
+          description: Invalid UUID format
+        '404':
+          description: Recipe not found
+
+  /api/v1/recipes/{id}/scale:
+    get:
+      tags: [Recipes Public]
+      summary: Scale recipe
+      description: Scale a recipe to different batch size
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: targetBatchSize
+          in: query
+          required: true
+          schema:
+            type: number
+          description: Target batch size
+        - name: targetUnit
+          in: query
+          schema:
+            type: string
+            default: "L"
+            enum: [L, gal, mL]
+          description: Target unit
+      responses:
+        '200':
+          description: Scaled recipe
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  originalRecipe:
+                    $ref: '#/components/schemas/Recipe'
+                  scaledRecipe:
+                    $ref: '#/components/schemas/Recipe'
+                  scalingFactor:
+                    type: number
+                  adjustments:
+                    type: array
+                  warnings:
+                    type: array
+        '400':
+          description: Invalid parameters
+        '404':
+          description: Recipe not found
+
+  /api/v1/recipes/{id}/brewing-guide:
+    get:
+      tags: [Recipes Public]
+      summary: Get brewing guide
+      description: Step-by-step brewing guide for a recipe
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Brewing guide
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recipeId:
+                    type: string
+                  recipeName:
+                    type: string
+                  steps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        stepNumber:
+                          type: integer
+                        phase:
+                          type: string
+                        title:
+                          type: string
+                        description:
+                          type: string
+                        duration:
+                          type: string
+                        temperature:
+                          type: string
+        '400':
+          description: Invalid UUID
+        '404':
+          description: Recipe not found
+
+  /api/v1/recipes/{id}/alternatives:
+    get:
+      tags: [Recipes Public]
+      summary: Get recipe alternatives
+      description: Alternative recipes when ingredients are unavailable
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: reason
+          in: query
+          schema:
+            type: string
+            default: "unavailable_ingredients"
+            enum: [unavailable_ingredients, similar_style, difficulty_level, time_constraints]
+        - name: maxResults
+          in: query
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Alternative recipes
+        '400':
+          description: Invalid UUID
+        '404':
+          description: Recipe not found
+
+  # =============================================================================
+  # RECIPES ADMIN APIs (5 endpoints)
+  # =============================================================================
+  /api/admin/recipes:
+    get:
+      tags: [Recipes Admin]
+      summary: List recipes (admin)
+      security:
+        - basicAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of recipes for admin
+        '403':
+          description: Authentication required
+
+    post:
+      tags: [Recipes Admin]
+      summary: Create new recipe
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                style:
+                  type: string
+                difficulty:
+                  type: string
+                  enum: [beginner, intermediate, advanced, expert]
+      responses:
+        '201':
+          description: Recipe created
+        '400':
+          description: Invalid recipe data
+        '403':
+          description: Authentication required
+
+  /api/admin/recipes/_health:
+    get:
+      tags: [Recipes Admin]
+      summary: Admin recipe service health
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: Service health status for admin
+        '403':
+          description: Authentication required
+
+  /api/admin/recipes/{recipeId}:
+    get:
+      tags: [Recipes Admin]
+      summary: Get recipe details (admin)
+      security:
+        - basicAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recipe details
+        '400':
+          description: Invalid UUID
+        '404':
+          description: Recipe not found
+
+    delete:
+      tags: [Recipes Admin]
+      summary: Delete recipe
+      security:
+        - basicAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recipe deleted
+        '403':
+          description: Authentication required
+        '404':
+          description: Recipe not found
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        Basic authentication for admin endpoints.
+        Default credentials: admin/brewing2024
+
+  schemas:
+    Hop:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "amarillo"
+        name:
+          type: string
+          example: "Amarillo"
+        alphaAcid:
+          type: number
+          example: 8.5
+        betaAcid:
+          type: number
+          example: 6
+        origin:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "US"
+            name:
+              type: string
+              example: "United States"
+            region:
+              type: string
+              example: "North America"
+            isNoble:
+              type: boolean
+            isNewWorld:
+              type: boolean
+        usage:
+          type: string
+          enum: [BITTERING, AROMA, DUAL]
+          example: "AROMA"
+        description:
+          type: string
+          example: "Orange citrus and floral character"
+        aromaProfile:
+          type: array
+          items:
+            type: string
+          example: ["Citrus", "Floral"]
+        status:
+          type: string
+          example: "ACTIVE"
+        isActive:
+          type: boolean
+
+    Malt:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "02113546-c03d-408a-b015-76c98cd735f1"
+        name:
+          type: string
+          example: "Pilsner Malt Real"
+        maltType:
+          type: string
+          enum: [BASE, CRYSTAL, ROASTED, SPECIALTY]
+          example: "BASE"
+        ebcColor:
+          type: number
+          example: 3.5
+        extractionRate:
+          type: integer
+          example: 82
+        diastaticPower:
+          type: integer
+          example: 120
+        originCode:
+          type: string
+          example: "DE"
+        description:
+          type: string
+          example: "Light base malt for lagers"
+        flavorProfiles:
+          type: array
+          items:
+            type: string
+          example: ["Light", "Grainy", "Sweet"]
+        isActive:
+          type: boolean
+
+    Yeast:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "aa201791-8f93-4966-a5d2-880ffd51da60"
+        name:
+          type: string
+          example: "American Ale Real"
+        strain:
+          type: string
+          example: "1056"
+        yeastType:
+          type: string
+          enum: [ALE, LAGER]
+          example: "ALE"
+        laboratory:
+          type: string
+          example: "Wyeast"
+        attenuationRange:
+          type: object
+          properties:
+            min:
+              type: integer
+              example: 73
+            max:
+              type: integer
+              example: 77
+            average:
+              type: integer
+              example: 75
+        fermentationTemp:
+          type: object
+          properties:
+            min:
+              type: integer
+              example: 15
+            max:
+              type: integer
+              example: 22
+            unit:
+              type: string
+              example: "°C"
+        flocculation:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+          example: "MEDIUM"
+        alcoholTolerance:
+          type: object
+          properties:
+            percentage:
+              type: number
+              example: 11
+            unit:
+              type: string
+              example: "%"
+        description:
+          type: string
+          nullable: true
+        characteristics:
+          type: array
+          items:
+            type: string
+          example: ["Clean", "Neutral", "Versatile"]
+        isActive:
+          type: boolean
+
+    Recipe:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        style:
+          type: string
+        difficulty:
+          type: string
+          enum: [beginner, intermediate, advanced, expert]
+        batchSize:
+          type: object
+          properties:
+            value:
+              type: number
+            unit:
+              type: string
+        ingredients:
+          type: object
+          properties:
+            malts:
+              type: array
+            hops:
+              type: array
+            yeasts:
+              type: array
+        brewingProcess:
+          type: object
+        expectedResults:
+          type: object
+        isActive:
+          type: boolean
+
+    YeastRecommendation:
+      type: object
+      properties:
+        yeast:
+          $ref: '#/components/schemas/Yeast'
+        score:
+          type: number
+          example: 0.95
+        reason:
+          type: string
+          example: "Perfect for beginner brewers"
+        confidence:
+          type: number
+          example: 0.88
+
+    BatchYeastData:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Test Batch Yeast"
+        strain:
+          type: string
+          example: "TEST001"
+        yeastType:
+          type: string
+          enum: [ALE, LAGER]
+          example: "ALE"
+        laboratory:
+          type: string
+          example: "Wyeast"
+        attenuationMin:
+          type: integer
+          example: 75
+        attenuationMax:
+          type: integer
+          example: 85
+        fermentationTempMin:
+          type: integer
+          example: 18
+        fermentationTempMax:
+          type: integer
+          example: 25
+        flocculation:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+          example: "MEDIUM"
+        alcoholTolerance:
+          type: integer
+          example: 12
+        description:
+          type: string
+        characteristics:
+          type: array
+          items:
+            type: string
+
+    CreateHopRequest:
+      type: object
+      required: [name, alphaAcid]
+      properties:
+        name:
+          type: string
+          example: "New Hop Variety"
+        alphaAcid:
+          type: number
+          example: 7.5
+        betaAcid:
+          type: number
+          example: 4.2
+        origin:
+          type: string
+          example: "US"
+        usage:
+          type: string
+          enum: [BITTERING, AROMA, DUAL]
+        description:
+          type: string
+        aromaProfile:
+          type: array
+          items:
+            type: string
+
+    UpdateHopRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        alphaAcid:
+          type: number
+        betaAcid:
+          type: number
+        description:
+          type: string
+        aromaProfile:
+          type: array
+          items:
+            type: string
+        isActive:
+          type: boolean
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: string

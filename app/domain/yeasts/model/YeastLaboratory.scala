@@ -6,7 +6,10 @@ import play.api.libs.json._
  * Laboratoires de levures
  * CORRECTION: Ajout méthode fromString manquante
  */
-sealed abstract class YeastLaboratory(val name: String, val fullName: String)
+sealed abstract class YeastLaboratory(val name: String, val fullName: String) {
+  def code: String = name.toUpperCase.replace(" ", "_")
+  def numericCode: Int = YeastLaboratory.all.indexOf(this)
+}
 
 object YeastLaboratory {
 
@@ -23,26 +26,30 @@ object YeastLaboratory {
   val all: List[YeastLaboratory] = List(Wyeast, WhiteLabs, Lallemand, Fermentis, Safale, Saflager, Imperial, Omega, Other)
 
   // CORRECTION: Méthode fromString manquante
-  def fromString(name: String): Option[YeastLaboratory] = {
-    if (name == null || name.trim.isEmpty) return Some(Other)
+  def fromString(name: String): Either[String, YeastLaboratory] = {
+    if (name == null || name.trim.isEmpty) return Right(Other)
     
     val cleanName = name.trim.toUpperCase.replace(" ", "_")
-    all.find(_.name.toUpperCase == cleanName) orElse
-    all.find(_.fullName.toUpperCase.replace(" ", "_") == cleanName) orElse
-    Some(Other) // Fallback vers Other si non trouvé
+    val found = all.find(_.name.toUpperCase == cleanName) orElse
+    all.find(_.fullName.toUpperCase.replace(" ", "_") == cleanName)
+    
+    found.map(Right(_)).getOrElse(Left(s"Laboratoire invalide: $name"))
+  }
+  
+  // Méthode Option pour compatibilité
+  def fromStringOption(name: String): Option[YeastLaboratory] = {
+    fromString(name).toOption
   }
   
   // Alias pour compatibilité
-  def fromName(name: String): Option[YeastLaboratory] = fromString(name)
+  def fromName(name: String): Option[YeastLaboratory] = fromStringOption(name)
   
   // Méthode parse manquante (retourne Either pour validation)
-  def parse(name: String): Either[String, YeastLaboratory] = {
-    fromString(name).toRight(s"Laboratoire invalide: $name")
-  }
+  def parse(name: String): Either[String, YeastLaboratory] = fromString(name)
 
   implicit val format: Format[YeastLaboratory] = Format(
     Reads(js => js.validate[String].flatMap { str =>
-      fromString(str) match {
+      fromStringOption(str) match {
         case Some(lab) => JsSuccess(lab)
         case None => JsSuccess(Other) // Toujours fallback vers Other
       }

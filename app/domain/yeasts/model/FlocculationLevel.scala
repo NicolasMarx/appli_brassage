@@ -18,6 +18,8 @@ sealed abstract class FlocculationLevel(
     case "VERY_HIGH" => "Soutirage après 4-7 jours, floculation très rapide"
     case _ => "Soutirage selon observation visuelle"
   }
+  
+  def numericCode: Int = FlocculationLevel.all.indexOf(this)
 }
 
 object FlocculationLevel {
@@ -34,6 +36,11 @@ object FlocculationLevel {
     if (name == null || name.trim.isEmpty) return None
     val cleanName = name.trim.toUpperCase.replace(" ", "_")
     all.find(_.name.toUpperCase == cleanName)
+  }
+  
+  // Méthode fromString pour batch service
+  def fromString(name: String): Either[String, FlocculationLevel] = {
+    fromName(name).toRight(s"Niveau de floculation invalide: $name")
   }
 
   implicit val format: Format[FlocculationLevel] = Format(
